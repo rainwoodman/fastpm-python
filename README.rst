@@ -3,6 +3,12 @@ fastpm
 
 This is the Python implementation of the FastPM numerical scheme for quasi-nbody simulations.
 
+CI status / master
+
+.. image:: https://travis-ci.org/rainwoodman/fastpm-python.svg?branch=master
+    :alt: Build Status
+    :target: https://travis-ci.org/rainwoodman/fastpm-python
+
 Install
 -------
 
