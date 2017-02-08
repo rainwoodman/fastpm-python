@@ -47,7 +47,7 @@ we need a recent version of nbodykit and matplotlib
     conda install matplotlib
 
 
-Finally, we can install fastpm, either from PYPI (the latest release, we have none yet)
+Finally, we can install fastpm, either from PYPI (the latest release)
 
 .. code::
 

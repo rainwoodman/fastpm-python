@@ -123,6 +123,7 @@ def _test_model(code, dlin_k, ampl):
 
 @MPITest([1, 4])
 def test_kdk(comm):
+    # Or use an object from astropy.
     cosmo = lambda : None
     cosmo.Om0 = 0.3
     cosmo.Ode0 = 0.7
