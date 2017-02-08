@@ -27,4 +27,4 @@ install:
     - pip install .
 
 script:
-    - python runtest.py --mpirun
+    - python runtests.py --mpirun
