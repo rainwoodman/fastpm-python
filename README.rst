@@ -16,6 +16,11 @@ First set up the basic requirements,
 
     conda install cython numpy scipy mpi4py nose
 
+    # We need to install gcc of conda to properly build the packages on OSX
+    # against conda packages
+
+    conda install gcc # only on Mac OSX
+
     env LD_LIBRARY_PATH=$CONDA_PREFIX/lib pip install pmesh bigfile
 
 FastPM is build as a forward model with `abopt`, so we need that.
