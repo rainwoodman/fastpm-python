@@ -35,8 +35,8 @@ FastPM is build as a forward model with `abopt`, so we need that.
 
     pip install abopt
 
-For running the nonlinear reconstruction code,
-we need a recent version of nbodykit and matplotlib
+For running the nonlinear reconstruction code, or use the nbodykit
+integration, we need a recent version of nbodykit and matplotlib
 
 .. code::
 
