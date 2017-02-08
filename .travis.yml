@@ -25,6 +25,7 @@ install:
 
 script:
 - python runtests.py --mpirun
+- bash check_tag.sh fastpm/version.py
 
 deploy:
   provider: pypi
