@@ -1,13 +1,12 @@
 from __future__ import print_function
+
+import numpy
 from mpi4py_test import MPITest
 from numpy.testing import assert_allclose
-import numpy
 
 import fastpm
-from astropy.cosmology import FlatLambdaCDM
-from pmesh.pm import ParticleMesh
 
-import fastpm.operators as operators
+from pmesh.pm import ParticleMesh
 
 def _addampl(white):
     """ returns dlin_k and amplitude """
