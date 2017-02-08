@@ -1,30 +1,39 @@
 language: c
-
 cache:
-    directories:
-        - $HOME/.cache/pip
-        - $HOME/.conda
-
+  directories:
+  - "$HOME/.cache/pip"
+  - "$HOME/.conda"
 env:
-    global:
-        - NUMPY_VERSION=1.11
-        - PYTHON_VERSION=3.5
-        - OMP_NUM_THREADS=1
-
+  global:
+  - NUMPY_VERSION=1.11
+  - PYTHON_VERSION=3.5
+  - OMP_NUM_THREADS=1
 before_install:
-    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-    - chmod +x miniconda.sh
-    - ./miniconda.sh -b -p $HOME/miniconda
-    - export PATH=$HOME/miniconda/bin:$PATH
-    - conda update --yes conda
-    - conda create --yes -n test python=$PYTHON_VERSION
-    - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py scipy
-    - env LD_LIBRARY_PATH=$CONDA_PREFIX/lib pip install pmesh bigfile
-    - pip install abopt
+- wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+- chmod +x miniconda.sh
+- "./miniconda.sh -b -p $HOME/miniconda"
+- export PATH=$HOME/miniconda/bin:$PATH
+- conda update --yes conda
+- conda create --yes -n test python=$PYTHON_VERSION
+- source activate test
+- conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py scipy astropy
+- env LD_LIBRARY_PATH=$CONDA_PREFIX/lib pip install pmesh bigfile
+- pip install abopt
 
 install:
-    - pip install .
+- pip install .
 
 script:
-    - python runtests.py --mpirun
+- python runtests.py --mpirun
+
+deploy:
+  provider: pypi
+  distributions: sdist
+  server: https://pypi.python.org/pypi
+  user : rainwoodman
+  password:
+    secure: tX6DkeEOQLcYFuK+nCAyoCwOEJ6UKDHUhmT6LoDgAX04uG1+u0WfPemrDyCgiG952qoT8EWqXN3UQL65p84wc6E7kMKMdIX0IPi3DaF6Y+cVv0TYLJk/CnGccGlBagAVDjaoStWQs3r74ji0LKDRgw5m1s9lue/E1dJUFnzRGdcv+0riY7G+5sd+eWlbyB+vzseDyK3Mlb/FqIFQwqpu2szj40Ke42l0acdgblxHcAhzGHfwrkyXDDqHcbqdKw/8VGfKWEeBxJQz1gBexU5+oTopNShWvZXxehwVUR9A4mDbDTIpZw7VGccDdpYFKZgljvuTG0M7Lz2Da4eHSSLhbdOcPMu/GhyhOHOwL5EyejS9CzenpPGTyIBV/8E+i9v4ox6JT6Hd5Rn6GdWVF5QzQ6kz7BRgAt+jvAsFrhkMYH64kfTG8uZ9kVRqqXzLxM+yWwY0C97e1QOkZpAI/OEAyBrrawDBvPc0Hezo7H20HGZEcPIsWzthf96QrVCUPnPzoHBN+8D6prfG8l7clPkA2gDm6NHT/I/jInnKUhB7ghMHdSXa8erM5msOYTityJjnvG5BYhqfdcFgPKWrNpXfbJbaih3JbYGQWsPf/JmEe7hsEQlc3LyaAWgKKlby6ft2DM+LCOU6BPoihcglQLFBOUN2AajYDHEQppGE000OBJQ=
+  on :
+    tags : True
+    condition : ${TRAVIS_JOB_NUMBER##*.} == 1
+

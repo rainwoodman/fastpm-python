@@ -124,7 +124,10 @@ def _test_model(code, dlin_k, ampl):
 
 @MPITest([1, 4])
 def test_kdk(comm):
-    cosmo = FlatLambdaCDM(Om0=0.3, H0=70, Tcmb0=0)
+    cosmo = lambda : None
+    cosmo.Om0 = 0.3
+    cosmo.Ode0 = 0.7
+    cosmo.Ok0 = 0.0
 
     pm = ParticleMesh(BoxSize=128.0, Nmesh=(4,4,4), comm=comm, dtype='f8')
     vm = fastpm.KickDriftKick(pm, shift=0.5)

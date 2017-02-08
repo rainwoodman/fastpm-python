@@ -62,14 +62,14 @@ the compilation of a package named `pfft-python`, the parallel
 FFT software we use.
 
 
-Keeping `abopt` upto date
--------------------------
+Keeping `abopt` and `pmesh` upto date
+-------------------------------------
 
-FastPM and abopt are hand in hand -- to update abopt:
+FastPM and abopt, and pmesh come hand in hand -- to update abopt and pmesh:
 
 .. code::
 
-    pip install -U --nodeps abopt
+    pip install -U --nodeps abopt pmesh
 
 Development
 -----------
