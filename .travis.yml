@@ -8,6 +8,7 @@ env:
   - NUMPY_VERSION=1.11
   - PYTHON_VERSION=3.5
   - OMP_NUM_THREADS=1
+
 before_install:
 - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
 - chmod +x miniconda.sh
@@ -17,7 +18,8 @@ before_install:
 - conda create --yes -n test python=$PYTHON_VERSION
 - source activate test
 - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py scipy astropy
-- env LD_LIBRARY_PATH=$CONDA_PREFIX/lib pip install pmesh bigfile
+- conda install --yes -c bccp bigfile mpi4py_test
+- env LD_LIBRARY_PATH=$CONDA_PREFIX/lib pip install pmesh
 - pip install abopt
 
 install:
