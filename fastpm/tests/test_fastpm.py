@@ -58,6 +58,27 @@ def test_prior(comm):
     _test_model(code, dlink, ampl)
 
 @MPITest([1, 4])
+def test_lpt_prior(comm):
+
+    from pmesh.pm import ParticleMesh
+
+    pm = ParticleMesh(BoxSize=128.0, Nmesh=(4, 4), comm=comm)
+    vm = fastpm.Evolution(pm, shift=0.5)
+
+    dlink = pm.generate_whitenoise(1234, mode='complex')
+    code = vm.code()
+    code.Displace(D1=1.0, v1=0, D2=0.0, v2=0.0)
+    code.Paint()
+    code.Chi2(variable='mesh')
+    code.Prior(powerspectrum=lambda k : 1.0)
+    code.Multiply(a='prior', b='prior', f=0.1)
+    code.Add(a='prior', b='chi2', c='chi2')
+
+    dlink, ampl = _addampl(dlink)
+
+    _test_model(code, dlink, ampl)
+
+@MPITest([1, 4])
 def test_gravity(comm):
     from pmesh.pm import ParticleMesh
     import fastpm.operators as operators

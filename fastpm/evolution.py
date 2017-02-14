@@ -68,6 +68,14 @@ class Evolution(VM):
 
         return gradient
 
+    @VM.microcode(aout=['b'], ain=['a'])
+    def Multiply(self, a, f):
+        return a * f
+
+    @Multiply.grad
+    def _(self, _b, f):
+        return _b * f
+
     @VM.microcode(aout=['meshforce'], ain=['mesh'])
     def MeshForce(self, mesh, d, factor):
         deltak = field.r2c(out=Ellipsis)
