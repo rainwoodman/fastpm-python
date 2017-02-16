@@ -153,12 +153,12 @@ class Evolution(VM):
                     .r2c_gradient(out=Ellipsis)
 
     @VM.microcode(aout=['difference'], ain=['mesh'])
-    def Subtract(self, mesh, data_x, sigma_x):
+    def Residual(self, mesh, data_x, sigma_x):
         diff = mesh + -1 * data_x
         diff[...] /= sigma_x[...]
         return diff
 
-    @Subtract.grad
+    @Residual.grad
     def _(self, _difference, sigma_x):
         _mesh = _difference.copy()
         _mesh[...] /= sigma_x

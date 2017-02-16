@@ -163,7 +163,7 @@ def test_kdk(comm):
 
     code = vm.simulation(cosmo, 0.1, 1.0, 5)
     code.Paint()
-    code.Subtract(data_x=data, sigma_x=sigma)
+    code.Residual(data_x=data, sigma_x=sigma)
     code.Chi2(variable='mesh')
 
     _test_model(code, dlink, ampl)
