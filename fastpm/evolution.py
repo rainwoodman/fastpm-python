@@ -173,30 +173,23 @@ class Evolution(VM):
         return _mesh.c2r_gradient().decompress_gradient()
 
     @VM.microcode(aout=['mesh'], ain=['mesh'])
-    def Resample(self, mesh, pm):
-        out = pm.create(mode='real')
-        out[...] = 0
-        mesh.resample(out)
-        # the noramlization is still 1 + \delta, though the resolution has
-        # changed.
-        # but then we would like to duplicate, effectivelyare each sample
-        # this many times, to preserve sigma
-        out[...] *= (self.pm.Nmesh.prod() / pm.Nmesh.prod())
-        return out
+    def Resample(self, mesh, Neff):
+        def _Resample_filter(k, v):
+            k0s = 2 * numpy.pi / v.BoxSize
+            mask = numpy.bitwise_and.reduce([abs(ki) <= Neff//2 * k0 for ki, k0 in zip(k, k0s)])
+            return v * mask
+
+        return mesh.r2c(out=Ellipsis).apply(_Resample_filter, out=Ellipsis).c2r(out=Ellipsis)
+
 
     @Resample.grad
-    def _(self, _mesh, pm):
-        # _mesh is downsampled
-        out = self.pm.create(mode='real')
-        out[...] = 0
-        _mesh.resample(out)
-        # preserving the 1 + \delta convention;
-        # FIXME: why is this correct?
-        # I know the factor is due to the difference of N**3 in 
-        # FFTs; but the details are fuzzy.
-        out[...] /= 1.0 * self.pm.Nmesh.prod() / pm.Nmesh.prod()
-        out[...] *= (self.pm.Nmesh.prod() / pm.Nmesh.prod())
-        return out
+    def _(self, _mesh, Neff):
+        def _Resample_filter(k, v):
+            k0s = 2 * numpy.pi / v.BoxSize
+            mask = numpy.bitwise_and.reduce([abs(ki) <= Neff//2 * k0 for ki, k0 in zip(k, k0s)])
+            return v * mask
+
+        return _mesh.c2r_gradient().apply(_Resample_filter, out=Ellipsis).r2c_gradient(out=Ellipsis)
 
     @VM.microcode(aout=['chi2'], ain=['variable'])
     def Chi2(self, variable):
