@@ -30,15 +30,14 @@ class Evolution(VM):
 
     @VM.microcode(ain=['dlin_k'], aout=['prior'])
     def Prior(self, dlin_k, powerspectrum):
-        return dlin_k.cdot(dlin_k,
-                    metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod()),
-                    independent=False)
+        return dlin_k.cnorm(
+                    metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod())
+                    )
     @Prior.grad
     def _(self, dlin_k, powerspectrum, _prior):
-        w = dlin_k.cdot_gradient(_prior, 
+        w = dlin_k.cnorm_gradient(_prior,
                     metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod()),
-                    independent=False)
-        w[...] *= 2 # because this is self cdot.
+                    )
         return w
 
     @VM.microcode(aout=['s', 'p'], ain=['dlin_k'])

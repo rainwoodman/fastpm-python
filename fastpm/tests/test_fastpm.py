@@ -123,7 +123,6 @@ def _test_model(code, dlin_k, ampl):
 
     num = []
     ana = []
-    print('------')
     for ind1 in numpy.ndindex(*(list(dlin_k.cshape) + [2])):
         dlinkl = dlin_k.copy()
         dlinkr = dlin_k.copy()
@@ -135,10 +134,11 @@ def _test_model(code, dlin_k, ampl):
         yl = objective(dlinkl)
         yr = objective(dlinkr)
         grad = yprime.cgetitem(ind1)
-        print(ind1, old, pert, yl, yr, grad * diff, yr - yl)
+        if abs(grad * diff - (yr - yl)) > 1e-3 * max([abs(grad * diff), abs(yr - yl)]):
+            if abs(grad * diff - (yr - yl)) > 1e-10:
+                print(ind1, old, pert, yl, yr, grad * diff, yr - yl)
         ana.append(grad * diff)
         num.append(yr - yl)
-    print('------')
 
     assert_allclose(num, ana, rtol=1e-3, atol=1e-10)
 
