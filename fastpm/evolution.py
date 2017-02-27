@@ -10,104 +10,7 @@ from fastpm.perturbation import PerturbationGrowth
 
 import fastpm.operators as operators
 
-class Evolution(VM):
-    def __init__(self, pm, B=1, shift=0, dtype='f8'):
-        self.pm = pm
-        self.fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=dtype, comm=pm.comm)
-        self.q = operators.create_grid(self.pm, shift=shift, dtype=dtype)
-        VM.__init__(self)
-
-    @VM.microcode(aout=['y'], ain=['x'])
-    def CopyVariable(self, x, y):
-        if hasattr(x, 'copy'):
-            y[...] = x.copy()
-        else:
-            y[...] = 1.0 * x
-
-    @CopyVariable.grad
-    def _(self, _y, _x):
-        _x[...] = _y
-
-    @VM.microcode(ain=['dlin_k'], aout=['prior'])
-    def Prior(self, dlin_k, prior, powerspectrum):
-        prior[...] = dlin_k.cnorm(
-                    metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod())
-                    )
-    @Prior.grad
-    def _(self, _dlin_k, dlin_k, powerspectrum, _prior):
-        _dlin_k[...] = dlin_k.cnorm_gradient(_prior,
-                    metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod()),
-                    )
-
-    @VM.microcode(aout=['s', 'p'], ain=['dlin_k'])
-    def Displace(self, dlin_k, s, p, D1, v1, D2, v2):
-        q = self.q
-        dx1 = operators.lpt1(dlin_k, q)
-        source = operators.lpt2source(dlin_k)
-        dx2 = operators.lpt1(source, q)
-        s[...] = D1 * dx1 + D2 * dx2
-        p[...] = v1 * dx1 + v2 * dx2
-
-    @Displace.grad
-    def _(self, _dlin_k, dlin_k, _s, _p, D1, v1, D2, v2):
-        q = self.q
-        grad_dx1 = _p * v1 + _s * D1
-        grad_dx2 = _p * v2 + _s * D2
-
-        if grad_dx1 is not VM.Zero:
-            gradient = operators.lpt1_gradient(self.pm, q, grad_dx1)
-        else:
-            gradient = VM.Zero
-
-        if grad_dx2 is not VM.Zero:
-            gradient_lpt2source = operators.lpt1_gradient(self.pm, q, grad_dx2)
-            gradient[...] +=  operators.lpt2source_gradient(dlin_k, gradient_lpt2source)
-
-        _dlin_k[...] = gradient
-
-    @VM.microcode(aout=['y'], ain=['x'])
-    def Multiply(self, x, f, y):
-        y[...] = x * f
-
-    @Multiply.grad
-    def _(self, _x, _y, f):
-        _x[...] = _y * f
-
-    @VM.microcode(aout=['f'], ain=['s'])
-    def Force(self, s, factor, f):
-        density_factor = 1.0 * self.fpm.Nmesh.prod() / self.pm.Nmesh.prod()
-        x = s + self.q
-        f[...] = operators.gravity(x, self.fpm, factor=density_factor * factor, f=None)
-
-    @Force.grad
-    def _(self, _s, s, _f, factor):
-        density_factor = 1.0 * self.fpm.Nmesh.prod() / self.pm.Nmesh.prod()
-
-        if _f is VM.Zero:
-            _s[...] = VM.Zero
-        else:
-            x = s + self.q
-            _s[...] = operators.gravity_gradient(x, self.pm, density_factor * factor, _f)
-
-    @VM.microcode(aout=['mesh'], ain=['s'])
-    def Paint(self, s, mesh):
-        x = s + self.q
-        mesh[...] = self.pm.create(mode='real')
-        layout = self.pm.decompose(x)
-        mesh[...].paint(x, layout=layout, hold=False)
-        # to have 1 + \delta on the mesh
-        mesh[...][...] *= 1.0 * mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
-
-    @Paint.grad
-    def _(self, _s, _mesh, s):
-        if _mesh is VM.Zero:
-            _s = VM.Zero
-        else:
-            x = s + self.q
-            layout = _mesh.pm.decompose(x)
-            _s[...], junk = _mesh.paint_gradient(x, layout=layout, out_mass=False)
-            _s[...][...] *= _mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
-
+class Convolution:
     @VM.microcode(aout=['mesh'], ain=['mesh'])
     def Transfer(self, mesh, transfer):
         mesh.r2c(out=Ellipsis)\
@@ -158,6 +61,16 @@ class Evolution(VM):
 
         _mesh.c2r_gradient().apply(_Resample_filter, out=Ellipsis).r2c_gradient(out=Ellipsis)
 
+class Numeric:
+
+    @VM.microcode(aout=['y'], ain=['x'])
+    def Multiply(self, x, f, y):
+        y[...] = x * f
+
+    @Multiply.grad
+    def _(self, _x, _y, f):
+        _x[...] = _y * f
+
     @VM.microcode(aout=['chi2'], ain=['variable'])
     def Chi2(self, chi2, variable):
         variable = variable * variable
@@ -169,6 +82,98 @@ class Evolution(VM):
     @Chi2.grad
     def _(self, _variable, _chi2, variable):
         _variable[...] = variable * (2 * _chi2)
+
+class PMesh:
+    @VM.microcode(aout=['mesh'], ain=['s'])
+    def Paint(self, s, mesh):
+        x = s + self.q
+        mesh[...] = self.pm.create(mode='real')
+        layout = self.pm.decompose(x)
+        mesh[...].paint(x, layout=layout, hold=False)
+        # to have 1 + \delta on the mesh
+        mesh[...][...] *= 1.0 * mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
+
+    @Paint.grad
+    def _(self, _s, _mesh, s):
+        if _mesh is VM.Zero:
+            _s = VM.Zero
+        else:
+            x = s + self.q
+            layout = _mesh.pm.decompose(x)
+            _s[...], junk = _mesh.paint_gradient(x, layout=layout, out_mass=False)
+            _s[...][...] *= _mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
+
+class Evolution(VM, Convolution, Numeric, PMesh):
+    def __init__(self, pm, B=1, shift=0, dtype='f8'):
+        self.pm = pm
+        self.fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=dtype, comm=pm.comm)
+        self.q = operators.create_grid(self.pm, shift=shift, dtype=dtype)
+
+        VM.__init__(self)
+
+    @VM.microcode(aout=['y'], ain=['x'])
+    def CopyVariable(self, x, y):
+        if hasattr(x, 'copy'):
+            y[...] = x.copy()
+        else:
+            y[...] = 1.0 * x
+
+    @CopyVariable.grad
+    def _(self, _y, _x):
+        _x[...] = _y
+
+    @VM.microcode(ain=['dlin_k'], aout=['prior'])
+    def Prior(self, dlin_k, prior, powerspectrum):
+        prior[...] = dlin_k.cnorm(
+                    metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod())
+                    )
+    @Prior.grad
+    def _(self, _dlin_k, dlin_k, powerspectrum, _prior):
+        _dlin_k[...] = dlin_k.cnorm_gradient(_prior,
+                    metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod()),
+                    )
+
+    @VM.microcode(aout=['s', 'p'], ain=['dlin_k'])
+    def Displace(self, dlin_k, s, p, D1, v1, D2, v2):
+        q = self.q
+        dx1 = operators.lpt1(dlin_k, q)
+        source = operators.lpt2source(dlin_k)
+        dx2 = operators.lpt1(source, q)
+        s[...] = D1 * dx1 + D2 * dx2
+        p[...] = v1 * dx1 + v2 * dx2
+
+    @Displace.grad
+    def _(self, _dlin_k, dlin_k, _s, _p, D1, v1, D2, v2):
+        q = self.q
+        grad_dx1 = _p * v1 + _s * D1
+        grad_dx2 = _p * v2 + _s * D2
+
+        if grad_dx1 is not VM.Zero:
+            gradient = operators.lpt1_gradient(self.pm, q, grad_dx1)
+        else:
+            gradient = VM.Zero
+
+        if grad_dx2 is not VM.Zero:
+            gradient_lpt2source = operators.lpt1_gradient(self.pm, q, grad_dx2)
+            gradient[...] +=  operators.lpt2source_gradient(dlin_k, gradient_lpt2source)
+
+        _dlin_k[...] = gradient
+
+    @VM.microcode(aout=['f'], ain=['s'])
+    def Force(self, s, factor, f):
+        density_factor = 1.0 * self.fpm.Nmesh.prod() / self.pm.Nmesh.prod()
+        x = s + self.q
+        f[...] = operators.gravity(x, self.fpm, factor=density_factor * factor, f=None)
+
+    @Force.grad
+    def _(self, _s, s, _f, factor):
+        density_factor = 1.0 * self.fpm.Nmesh.prod() / self.pm.Nmesh.prod()
+
+        if _f is VM.Zero:
+            _s[...] = VM.Zero
+        else:
+            x = s + self.q
+            _s[...] = operators.gravity_gradient(x, self.pm, density_factor * factor, _f)
 
     @VM.microcode(aout=['p'], ain=['f', 'p'])
     def Kick(self, f, p, dda):
