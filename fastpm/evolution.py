@@ -17,159 +17,127 @@ class Evolution(VM):
         self.q = operators.create_grid(self.pm, shift=shift, dtype=dtype)
         VM.__init__(self)
 
-    @VM.microcode(aout=['b'], ain=['a'])
-    def CopyVariable(self, a):
-        if hasattr(a, 'copy'):
-            return a.copy()
+    @VM.microcode(aout=['y'], ain=['x'])
+    def CopyVariable(self, x, y):
+        if hasattr(x, 'copy'):
+            y[...] = x.copy()
         else:
-            return 1.0 * a
+            y[...] = 1.0 * x
 
     @CopyVariable.grad
-    def _(self, _b):
-        return _b
+    def _(self, _y, _x):
+        _x[...] = _y
 
     @VM.microcode(ain=['dlin_k'], aout=['prior'])
-    def Prior(self, dlin_k, powerspectrum):
-        return dlin_k.cnorm(
+    def Prior(self, dlin_k, prior, powerspectrum):
+        prior[...] = dlin_k.cnorm(
                     metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod())
                     )
     @Prior.grad
-    def _(self, dlin_k, powerspectrum, _prior):
-        w = dlin_k.cnorm_gradient(_prior,
+    def _(self, _dlin_k, dlin_k, powerspectrum, _prior):
+        _dlin_k[...] = dlin_k.cnorm_gradient(_prior,
                     metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod()),
                     )
-        return w
 
     @VM.microcode(aout=['s', 'p'], ain=['dlin_k'])
-    def Displace(self, dlin_k, D1, v1, D2, v2):
+    def Displace(self, dlin_k, s, p, D1, v1, D2, v2):
         q = self.q
         dx1 = operators.lpt1(dlin_k, q)
         source = operators.lpt2source(dlin_k)
         dx2 = operators.lpt1(source, q)
-        s = D1 * dx1 + D2 * dx2
-        p = v1 * dx1 + v2 * dx2
-        return s, p
+        s[...] = D1 * dx1 + D2 * dx2
+        p[...] = v1 * dx1 + v2 * dx2
 
     @Displace.grad
-    def _(self, dlin_k, _s, _p, D1, v1, D2, v2):
+    def _(self, _dlin_k, dlin_k, _s, _p, D1, v1, D2, v2):
         q = self.q
         grad_dx1 = _p * v1 + _s * D1
         grad_dx2 = _p * v2 + _s * D2
 
         if grad_dx1 is not VM.Zero:
-            gradient = operators.lpt1_gradient(dlin_k.pm, q, grad_dx1)
+            gradient = operators.lpt1_gradient(self.pm, q, grad_dx1)
         else:
             gradient = VM.Zero
 
         if grad_dx2 is not VM.Zero:
-            gradient_lpt2source = operators.lpt1_gradient(dlin_k.pm, q, grad_dx2)
+            gradient_lpt2source = operators.lpt1_gradient(self.pm, q, grad_dx2)
             gradient[...] +=  operators.lpt2source_gradient(dlin_k, gradient_lpt2source)
 
-        return gradient
+        _dlin_k[...] = gradient
 
-    @VM.microcode(aout=['b'], ain=['a'])
-    def Multiply(self, a, f):
-        return a * f
+    @VM.microcode(aout=['y'], ain=['x'])
+    def Multiply(self, x, f, y):
+        y[...] = x * f
 
     @Multiply.grad
-    def _(self, _b, f):
-        return _b * f
-
-    @VM.microcode(aout=['meshforce'], ain=['mesh'])
-    def MeshForce(self, mesh, d, factor):
-        deltak = field.r2c(out=Ellipsis)
-        f = deltak.apply(laplace_kernel) \
-                  .apply(diff_kernel(d), out=Ellipsis) \
-                  .c2r(out=Ellipsis)
-        f[...] *= factor
-        return f
-
-    @MeshForce.grad
-    def _(self, _meshforce, d, factor):
-        _mesh = _meshforce.c2r_gradient()\
-                           .apply(laplace_kernel, out=Ellipsis) \
-                           .apply(diff_kernel(d), out=Ellipsis) \
-                           .r2c_gradient(out=Ellipsis)
-        _mesh[...] *= factor
-        return _mesh
-
-    @VM.microcode(ain=['f', 'meshforce', 's'], aout=['f'])
-    def Readout(self, s, meshforce, d, f):
-        if f is VM.Zero:
-            f = numpy.empty_like(self.q)
-        x = s + self.q
-        layout = self.fpm.decompose(x)
-        meshforce.readout(x, layout=layout, out=f[:, d])
-        return f
+    def _(self, _x, _y, f):
+        _x[...] = _y * f
 
     @VM.microcode(aout=['f'], ain=['s'])
-    def Force(self, s, factor):
+    def Force(self, s, factor, f):
         density_factor = 1.0 * self.fpm.Nmesh.prod() / self.pm.Nmesh.prod()
         x = s + self.q
-        return operators.gravity(x, self.fpm, factor=density_factor * factor, f=None)
+        f[...] = operators.gravity(x, self.fpm, factor=density_factor * factor, f=None)
 
     @Force.grad
-    def _(self, s, _f, factor):
+    def _(self, _s, s, _f, factor):
         density_factor = 1.0 * self.fpm.Nmesh.prod() / self.pm.Nmesh.prod()
 
         if _f is VM.Zero:
-            return VM.Zero
+            _s[...] = VM.Zero
         else:
             x = s + self.q
-            return operators.gravity_gradient(x, self.pm, density_factor * factor, _f)
+            _s[...] = operators.gravity_gradient(x, self.pm, density_factor * factor, _f)
 
     @VM.microcode(aout=['mesh'], ain=['s'])
-    def Paint(self, s):
+    def Paint(self, s, mesh):
         x = s + self.q
-        mesh = self.pm.create(mode='real')
+        mesh[...] = self.pm.create(mode='real')
         layout = self.pm.decompose(x)
-        mesh.paint(x, layout=layout, hold=False)
+        mesh[...].paint(x, layout=layout, hold=False)
         # to have 1 + \delta on the mesh
-        mesh[...] *= 1.0 * mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
-        return mesh
+        mesh[...][...] *= 1.0 * mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
 
     @Paint.grad
-    def _(self, _mesh, s):
+    def _(self, _s, _mesh, s):
         if _mesh is VM.Zero:
-            return VM.Zero
+            _s = VM.Zero
         else:
             x = s + self.q
             layout = _mesh.pm.decompose(x)
-            _s, junk = _mesh.paint_gradient(x, layout=layout, out_mass=False)
-            _s[...] *= _mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
-            return _s
+            _s[...], junk = _mesh.paint_gradient(x, layout=layout, out_mass=False)
+            _s[...][...] *= _mesh.pm.Nmesh.prod() / self.pm.Nmesh.prod()
 
     @VM.microcode(aout=['mesh'], ain=['mesh'])
     def Transfer(self, mesh, transfer):
-        return mesh.r2c(out=Ellipsis)\
-                   .apply(lambda k, v: transfer(sum(ki ** 2 for ki in k) ** 0.5) * v, out=Ellipsis)\
-                   .c2r(out=Ellipsis)
+        mesh.r2c(out=Ellipsis)\
+               .apply(lambda k, v: transfer(sum(ki ** 2 for ki in k) ** 0.5) * v, out=Ellipsis)\
+               .c2r(out=Ellipsis)
 
     @Transfer.grad
     def _(self, _mesh, transfer):
-        return _mesh.c2r_gradient(out=Ellipsis)\
-                   .apply(lambda k, v: transfer(sum(ki ** 2 for ki in k) ** 0.5) * v, out=Ellipsis)\
-                    .r2c_gradient(out=Ellipsis)
+        _mesh.c2r_gradient(out=Ellipsis)\
+               .apply(lambda k, v: transfer(sum(ki ** 2 for ki in k) ** 0.5) * v, out=Ellipsis)\
+               .r2c_gradient(out=Ellipsis)
 
-    @VM.microcode(aout=['difference'], ain=['mesh'])
-    def Residual(self, mesh, data_x, sigma_x):
-        diff = mesh + -1 * data_x
+    @VM.microcode(aout=['residual'], ain=['mesh'])
+    def Residual(self, mesh, data_x, sigma_x, residual):
+        diff = mesh - data_x
         diff[...] /= sigma_x[...]
-        return diff
+        residual[...] = diff
 
     @Residual.grad
-    def _(self, _difference, sigma_x):
-        _mesh = _difference.copy()
-        _mesh[...] /= sigma_x
-        return _mesh
+    def _(self, _mesh, _residual, sigma_x):
+        _mesh[...] = _residual.copy()
+        _mesh[...][...] /= sigma_x
 
-    @VM.microcode(ain=['dlin_k'], aout=['mesh'])
-    def C2R(self, dlin_k):
-        return dlin_k.c2r()
+    @VM.microcode(aout=['R'], ain=['C'])
+    def C2R(self, R, C):
+        R[...] = C.c2r()
 
     @C2R.grad
-    def _(self, _mesh):
-        return _mesh.c2r_gradient().decompress_gradient()
+    def _(self, _R, _C):
+        _C[...] = _R.c2r_gradient().decompress_gradient()
 
     @VM.microcode(aout=['mesh'], ain=['mesh'])
     def Resample(self, mesh, Neff):
@@ -178,7 +146,7 @@ class Evolution(VM):
             mask = numpy.bitwise_and.reduce([abs(ki) <= Neff//2 * k0 for ki, k0 in zip(k, k0s)])
             return v * mask
 
-        return mesh.r2c(out=Ellipsis).apply(_Resample_filter, out=Ellipsis).c2r(out=Ellipsis)
+        mesh.r2c(out=Ellipsis).apply(_Resample_filter, out=Ellipsis).c2r(out=Ellipsis)
 
 
     @Resample.grad
@@ -188,41 +156,35 @@ class Evolution(VM):
             mask = numpy.bitwise_and.reduce([abs(ki) <= Neff//2 * k0 for ki, k0 in zip(k, k0s)])
             return v * mask
 
-        return _mesh.c2r_gradient().apply(_Resample_filter, out=Ellipsis).r2c_gradient(out=Ellipsis)
+        _mesh.c2r_gradient().apply(_Resample_filter, out=Ellipsis).r2c_gradient(out=Ellipsis)
 
     @VM.microcode(aout=['chi2'], ain=['variable'])
-    def Chi2(self, variable):
+    def Chi2(self, chi2, variable):
         variable = variable * variable
         if isinstance(variable, RealField):
-            return variable.csum()
+            chi2[...] = variable.csum()
         else:
-            return self.pm.comm.allreduce(variable.sum(dtype='f8'))
+            chi2[...] = self.pm.comm.allreduce(variable.sum(dtype='f8'))
 
     @Chi2.grad
-    def _(self, _chi2, variable):
-        return variable * (2 * _chi2)
+    def _(self, _variable, _chi2, variable):
+        _variable[...] = variable * (2 * _chi2)
 
     @VM.microcode(aout=['p'], ain=['f', 'p'])
     def Kick(self, f, p, dda):
         p[...] += f * dda
-        return p
 
     @Kick.grad
-    def _(self, _p, dda):
-        if _p is VM.Zero:
-            return VM.Zero, VM.Zero
-        return _p * dda, _p
+    def _(self, _f, _p, dda):
+        _f[...] = _p * dda
 
     @VM.microcode(aout=['s'], ain=['p', 's'])
     def Drift(self, p, s, dyyy):
         s[...] += p * dyyy
-        return s
 
     @Drift.grad
-    def _(self, _s, dyyy):
-        if _s is VM.Zero:
-            return VM.Zero, VM.Zero
-        return _s * dyyy, _s
+    def _(self, _p, _s, dyyy):
+        _p[...] = _s * dyyy
 
 class LPT(Evolution):
     def __init__(self, pm, shift=0):

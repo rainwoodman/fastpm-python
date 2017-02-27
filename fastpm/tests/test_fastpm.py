@@ -52,7 +52,7 @@ def test_prior(comm):
     dlink = pm.generate_whitenoise(1234, mode='complex')
     code = vm.code()
     code.Prior(powerspectrum=lambda k : 1.0)
-    code.CopyVariable(a='prior', b='chi2')
+    code.CopyVariable(x='prior', y='chi2')
     dlink, ampl = _addampl(dlink)
 
     _test_model(code, dlink, ampl)
@@ -164,7 +164,7 @@ def test_kdk(comm):
     code = vm.simulation(cosmo, 0.1, 1.0, 5)
     code.Paint()
     code.Residual(data_x=data, sigma_x=sigma)
-    code.Chi2(variable='mesh')
+    code.Chi2(variable='residual')
 
     _test_model(code, dlink, ampl)
 
@@ -182,7 +182,7 @@ def test_resample(comm):
 
     dlink, ampl = _addampl(dlink)
     code = vm.code()
-    code.C2R()
+    code.C2R(C='dlin_k', R='mesh')
     code.Resample(Neff=4)
     code.Chi2(variable='mesh')
 
