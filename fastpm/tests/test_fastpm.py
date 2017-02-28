@@ -34,7 +34,7 @@ def test_lpt(comm):
 
     dlink = pm.generate_whitenoise(1234, mode='complex')
     code = vm.code()
-    code.Displace(D1=1.0, v1=0, D2=0.0, v2=0.0)
+    code.LPTDisplace(D1=1.0, v1=0, D2=0.0, v2=0.0)
     code.Chi2(variable='s')
 
     dlink, ampl = _addampl(dlink)
@@ -67,7 +67,7 @@ def test_lpt_prior(comm):
 
     dlink = pm.generate_whitenoise(1234, mode='complex')
     code = vm.code()
-    code.Displace(D1=1.0, v1=0, D2=0.0, v2=0.0)
+    code.LPTDisplace(D1=1.0, v1=0, D2=0.0, v2=0.0)
     code.Paint()
     code.Chi2(variable='mesh')
     code.Prior(powerspectrum=lambda k : 1.0)
@@ -90,10 +90,10 @@ def test_gravity(comm):
     dlink = pm.generate_whitenoise(12345, mode='complex')
 
     code = vm.code()
-    code.Displace(D1=1.0, v1=0, D2=0.0, v2=0.0)
+    code.LPTDisplace(D1=1.0, v1=0, D2=0.0, v2=0.0)
     code.Force(factor=0.1)
     code.Chi2(variable='f')
-
+    print(code)
     # FIXME: without the shift some particles have near zero dx1.
     # or near 1 dx1.
     # the gradient is not well approximated by the numerical if
@@ -151,7 +151,7 @@ def test_kdk(comm):
     cosmo.Ok0 = 0.0
 
     pm = ParticleMesh(BoxSize=128.0, Nmesh=(4,4,4), comm=comm, dtype='f8')
-    vm = fastpm.KickDriftKick(pm, shift=0.5)
+    vm = fastpm.Evolution(pm, B=1, shift=0.5)
     dlink = pm.generate_whitenoise(12345, mode='complex', unitary=True)
 
     dlink, ampl = _addampl(dlink)
@@ -161,7 +161,9 @@ def test_kdk(comm):
     sigma = data.copy()
     sigma[...] = 1.0
 
-    code = vm.simulation(cosmo, 0.1, 1.0, 5)
+    code = vm.code()
+
+    code.KDKSimulation(cosmo=cosmo, astart=0.1, aend=1.0, Nsteps=5)
     code.Paint()
     code.Residual(data_x=data, sigma_x=sigma)
     code.Chi2(variable='residual')
