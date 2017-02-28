@@ -91,6 +91,7 @@ def test_gravity(comm):
 
     code = vm.code()
     code.LPTDisplace(D1=1.0, v1=0, D2=0.0, v2=0.0)
+    code.ForcePaint()
     code.Force(factor=0.1)
     code.Chi2(variable='f')
     print(code)
