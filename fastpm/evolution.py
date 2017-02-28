@@ -35,19 +35,66 @@ class Evolution(PMesh, LPT, MPINumeric, VM):
         _dlin_k[...] = dlin_k.cnorm_gradient(_prior,
                     metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod()),
                     )
-
-    @VM.microcode(aout=['f'], ain=['s'])
-    def Force(self, s, factor, f):
+    @VM.microcode(aout=['delta_k'], ain=['s'])
+    def ForcePaint(self, s, delta_k):
+        pm = self.fpm
         x = s + self.q
-        f[...] = operators.gravity(x, self.fpm, factor=1.0 * factor / self.mean_number_count, f=None)
+        field = pm.create(mode="real")
+        layout = pm.decompose(x)
+        field.paint(x, layout=layout, hold=False)
+        delta_k[:] = field.r2c(out=Ellipsis)
+        delta_k[:][...] /= self.mean_number_count
+
+    @ForcePaint.grad
+    def _(self, _delta_k, _s, s):
+        x = s + self.q
+        pm = self.fpm
+        layout = pm.decompose(x)
+
+        _field = _delta_k.r2c_gradient()
+        _field[...] /= self.mean_number_count
+        _x, _mass = _field.paint_gradient(x, layout=layout, out_mass=False)
+        _s[...] = _x
+
+    @VM.microcode(aout=['f'], ain=['delta_k', 's'])
+    def Force(self, s, delta_k, factor, f):
+        x = s + self.q
+        pm = self.fpm
+        layout = pm.decompose(x)
+
+        f[:] = numpy.empty_like(x)
+        for d in range(delta_k.ndim):
+            force_d = delta_k.apply(operators.laplace_kernel) \
+                      .apply(operators.diff_kernel(d), out=Ellipsis) \
+                      .c2r(out=Ellipsis)
+            force_d.readout(x, layout=layout, out=f[:][..., d])
+
+        f[:][...] *= factor
 
     @Force.grad
-    def _(self, _s, s, _f, factor):
-        if _f is Zero:
-            _s[...] = Zero
-        else:
-            x = s + self.q
-            _s[...] = operators.gravity_gradient(x, self.fpm, 1.0 * factor / self.mean_number_count, _f)
+    def _(self, _f, _s, _delta_k, delta_k, factor, s):
+        x = s + self.q
+        pm = self.fpm
+
+        layout = pm.decompose(x)
+
+        _delta_k[:] = delta_k * 0
+        _s[:] = numpy.zeros_like(s)
+
+        for d in range(delta_k.ndim):
+            force_d = delta_k.apply(operators.laplace_kernel) \
+                      .apply(operators.diff_kernel(d), out=Ellipsis) \
+                      .c2r(out=Ellipsis)
+
+            # factor because of the inplace multiplication
+            _force_d, _x_d = force_d.readout_gradient(
+                x, btgrad=_f[:, d] * factor, layout=layout)
+
+            _delta_k_d = _force_d.c2r_gradient(out=Ellipsis) \
+                            .apply(operators.laplace_kernel, out=Ellipsis) \
+                            .apply(operators.diff_kernel(d, conjugate=True), out=Ellipsis)
+            _delta_k[:][...] += _delta_k_d
+            _s[:][...] += _x_d
 
     @VM.microcode(aout=['p'], ain=['f', 'p'])
     def Kick(self, f, p, dda):
@@ -92,6 +139,8 @@ class Evolution(PMesh, LPT, MPINumeric, VM):
                       D2=pt.D2(astart),
                       v2=pt.f2(astart) * pt.D2(astart) * astart ** 2 * pt.E(astart),
                       dlin_k=dlin_k)
+
+        self.ForcePaint()
         self.Force(factor=1.5 * pt.Om0)
 
         a = numpy.linspace(astart, aend, Nsteps + 1, endpoint=True)
@@ -106,6 +155,7 @@ class Evolution(PMesh, LPT, MPINumeric, VM):
             self.Kick(dda=K(ai, ac, ai))
             self.Drift(dyyy=D(ai, ac, ac))
             self.Drift(dyyy=D(ac, af, ac))
+            self.ForcePaint()
             self.Force(factor=1.5 * pt.Om0)
             self.Kick(dda=K(ac, af, af))
 
