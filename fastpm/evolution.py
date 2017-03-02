@@ -160,3 +160,63 @@ class Evolution(PMesh, LPT, MPINumeric, VM):
             self.Kick(dda=K(ac, af, af))
 
         self.Paint(mesh=mesh)
+    @VM.microcode(ain=['delta_k', 'Phalf_M_history'], aout=['delta_k', 'Phalf_M_history'])
+    def Neutrino(self, delta_k, Phalf_M_history, a, factor, fnu, cosmo):
+        Phalf_hdm = 0
+
+        s = s(cosmo, a)
+
+        for a_i, s_i, Phalf_M in Phalf_M_history:
+            Phalf_hdm += (I(s - s_i) * s - s_i) *  Phalf_M
+
+        k, p = PowerSpectrum(delta_k)
+
+        Phalf_cdm = p ** 0.5
+
+        Phalf_M = (1 - fnu) Phalf_cdm + fnu * Phalf_hdm
+
+        transfer = UnivariantInterpolatedSpline(k, Phalf_M / Phalf_cdm)
+
+        def filter(k, v):
+            kmag = sum(ki ** 2 for ki in k) ** 0.5
+            return v * transfer(kmag)
+
+        delta_k.apply(filter, out=Ellipsis)
+
+        delta_M_history.append(a, s, Phalf_M)
+
+    @Neutrino.grad
+    def _(self, _Phalf_M_history, _delta_k):
+        _Phalf_M_history[...] = Zero
+        _delta_k = Zero
+
+    @VM.programme(aout=['mesh'], ain=['dlin_k'])
+    def NuKDKSimulation(self, cosmo, astart, aend, Nsteps, mesh, dlin_k):
+        pt = PerturbationGrowth(cosmo)
+        self.LPTDisplace(D1=pt.D1(astart), 
+                      v1=pt.f1(astart) * pt.D1(astart) * astart ** 2 * pt.E(astart),
+                      D2=pt.D2(astart),
+                      v2=pt.f2(astart) * pt.D2(astart) * astart ** 2 * pt.E(astart),
+                      dlin_k=dlin_k)
+
+        self.ForcePaint()
+        self.Neutrino()
+        self.Force(factor=1.5 * pt.Om0)
+
+        a = numpy.linspace(astart, aend, Nsteps + 1, endpoint=True)
+        def K(ai, af, ar):
+            return 1 / (ar ** 2 * pt.E(ar)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ar)
+        def D(ai, af, ar):
+            return 1 / (ar ** 3 * pt.E(ar)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ar)
+
+        for ai, af in zip(a[:-1], a[1:]):
+            ac = (ai * af) ** 0.5
+
+            self.Kick(dda=K(ai, ac, ai))
+            self.Drift(dyyy=D(ai, ac, ac))
+            self.Drift(dyyy=D(ac, af, ac))
+            self.ForcePaint()
+            self.Force(factor=1.5 * pt.Om0)
+            self.Kick(dda=K(ac, af, af))
+
+        self.Paint(mesh=mesh)
