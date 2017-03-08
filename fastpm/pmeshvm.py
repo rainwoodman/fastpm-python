@@ -1,9 +1,10 @@
 import numpy
 from abopt.vmad import Zero, VM
 
-class PMesh(VM):
-    def __init__(self, pm):
-        self._pmesh_pm = pm
+class ParticleMeshVM(VM):
+    def __init__(self, pm, q):
+        self.pm = pm
+        self.q = q
 
     @VM.microcode(aout=['mesh'], ain=['mesh'])
     def Transfer(self, mesh, transfer):
@@ -84,7 +85,7 @@ class PMesh(VM):
 
     @VM.microcode(aout=['mesh'], ain=['s'])
     def Paint(self, s, mesh):
-        pm = self._pmesh_pm
+        pm = self.pm
         x = s + self.q
         mesh[...] = pm.create(mode='real')
         layout = pm.decompose(x)
@@ -95,7 +96,7 @@ class PMesh(VM):
 
     @Paint.grad
     def _(self, _s, _mesh, s):
-        pm = self._pmesh_pm
+        pm = self.pm
         if _mesh is Zero:
             _s = Zero
         else:

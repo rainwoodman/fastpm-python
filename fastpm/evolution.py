@@ -9,32 +9,30 @@ from fastpm.perturbation import PerturbationGrowth
 
 import fastpm.operators as operators
 
-from fastpm.models import PMesh, MPINumeric, LPT
+from fastpm.models import MPINumeric
+from fastpm.pmeshvm import ParticleMeshVM
 
-class Evolution(PMesh, LPT, MPINumeric, VM):
+class Evolution(MPINumeric, ParticleMeshVM):
     def __init__(self, pm, B=1, shift=0, dtype='f8'):
         self.fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=dtype, comm=pm.comm)
-        self.pm = pm
-        self.q = operators.create_grid(self.pm, shift=shift, dtype=dtype)
-        N = pm.comm.allreduce(len(self.q))
+        q = operators.create_grid(pm, shift=shift, dtype=dtype)
+        N = pm.comm.allreduce(len(q))
 
         self.mean_number_count = 1.0 * N / (1.0 * self.fpm.Nmesh.prod())
 
-        VM.__init__(self)
-        PMesh.__init__(self, self.pm)
-        MPINumeric.__init__(self, self.pm.comm)
-        LPT.__init__(self, self.pm, self.q)
+        ParticleMeshVM.__init__(self, pm, q)
+        MPINumeric.__init__(self, pm.comm)
 
-    @microcode
+    @microcode(ain=['X'], aout=['dlin_k'])
     def MakeInitialCondition(self, X, powerspectrum, dlin_k):
         def filter(k, v):
-            return (powerspectrum(k) / v.BoxSize.prod()) ** 0.5 * v)
+            return (powerspectrum(k) / v.BoxSize.prod()) ** 0.5 * v
         dlin_k[...] = X.r2c().apply(filter, out=Ellipsis)
 
     @MakeInitialCondition.defvjp
     def _(self, _dlin_k, _X):
         def filter(k, v):
-            return (powerspectrum(k) / v.BoxSize.prod()) ** 0.5 * v)
+            return (powerspectrum(k) / v.BoxSize.prod()) ** 0.5 * v
         _X[...] = _dlin_k.r2c_gradient().apply(filter, out=Ellipsis)
 
     @microcode(ain=['dlin_k'], aout=['prior'])
@@ -47,6 +45,7 @@ class Evolution(PMesh, LPT, MPINumeric, VM):
         _dlin_k[...] = dlin_k.cnorm_gradient(_prior,
                     metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod()),
                     )
+
     @VM.microcode(aout=['delta_k'], ain=['s'])
     def ForcePaint(self, s, delta_k):
         pm = self.fpm
@@ -123,6 +122,34 @@ class Evolution(PMesh, LPT, MPINumeric, VM):
     @Drift.grad
     def _(self, _p, _s, dyyy):
         _p[...] = _s * dyyy
+
+    @microcode(aout=['s', 'p'], ain=['dlin_k'])
+    def LPTDisplace(self, dlin_k, s, p, D1, v1, D2, v2):
+        q = self.q
+        dx1 = operators.lpt1(dlin_k, q)
+        source = operators.lpt2source(dlin_k)
+        dx2 = operators.lpt1(source, q)
+        s[...] = D1 * dx1 + D2 * dx2
+        p[...] = v1 * dx1 + v2 * dx2
+
+    @LPTDisplace.defvjp
+    def _(self, _dlin_k, dlin_k, _s, _p, D1, v1, D2, v2):
+        pm = self.pm
+        q = self.q
+
+        grad_dx1 = _p * v1 + _s * D1
+        grad_dx2 = _p * v2 + _s * D2
+
+        if grad_dx1 is not Zero:
+            gradient = operators.lpt1_gradient(pm, q, grad_dx1)
+        else:
+            gradient = Zero
+
+        if grad_dx2 is not Zero:
+            gradient_lpt2source = operators.lpt1_gradient(pm, q, grad_dx2)
+            gradient[...] +=  operators.lpt2source_gradient(dlin_k, gradient_lpt2source)
+
+        _dlin_k[...] = gradient
 
     @VM.programme(aout=['mesh'], ain=['dlin_k'])
     def LPTSimulation(self, cosmo, aend, order, mesh, dlin_k):
