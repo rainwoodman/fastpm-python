@@ -2,7 +2,7 @@ from __future__ import print_function
 import numpy
 import logging
 
-from abopt.vmad import VM, Zero
+from abopt.vmad import VM, Zero, microcode
 from pmesh.pm import ParticleMesh, RealField
 
 from fastpm.perturbation import PerturbationGrowth
@@ -25,7 +25,19 @@ class Evolution(PMesh, LPT, MPINumeric, VM):
         MPINumeric.__init__(self, self.pm.comm)
         LPT.__init__(self, self.pm, self.q)
 
-    @VM.microcode(ain=['dlin_k'], aout=['prior'])
+    @microcode
+    def MakeInitialCondition(self, X, powerspectrum, dlin_k):
+        def filter(k, v):
+            return (powerspectrum(k) / v.BoxSize.prod()) ** 0.5 * v)
+        dlin_k[...] = X.r2c().apply(filter, out=Ellipsis)
+
+    @MakeInitialCondition.defvjp
+    def _(self, _dlin_k, _X):
+        def filter(k, v):
+            return (powerspectrum(k) / v.BoxSize.prod()) ** 0.5 * v)
+        _X[...] = _dlin_k.r2c_gradient().apply(filter, out=Ellipsis)
+
+    @microcode(ain=['dlin_k'], aout=['prior'])
     def Prior(self, dlin_k, prior, powerspectrum):
         prior[...] = dlin_k.cnorm(
                     metric=lambda k: 1 / (powerspectrum(k) / dlin_k.BoxSize.prod())
