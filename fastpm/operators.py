@@ -96,9 +96,8 @@ def lpt1_gradient(basepm, q, grad_disp, method='cic'):
         grad.value[...] += grad_delta_d_k.value
 
     # dlin_k are free modes in the compressed real FFT representation,
-    # so we need to take care of decompression
-
-    grad.decompress_gradient(out=Ellipsis)
+    # remember to take care of decompression later with decompress_gradient().
+    # or better, always use RealField / WhiteNoise as free parameters.
 
     return grad
 

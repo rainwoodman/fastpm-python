@@ -1,7 +1,7 @@
 import numpy
 from abopt.vmad import Zero, VM
 
-class PMesh:
+class PMesh(VM):
     def __init__(self, pm):
         self._pmesh_pm = pm
 
@@ -41,7 +41,26 @@ class PMesh:
         if _R is Zero:
             _C[...] = Zero
         else:
-            _C[...] = _R.c2r_gradient().decompress_gradient()
+            _C[...] = _R.c2r_gradient()
+
+    @VM.microcode(aout=['C'], ain=['R'])
+    def R2C(self, C, R):
+        C[...] = R.r2c()
+
+    @VM.microcode(aout=['C'], ain=['C'])
+    def Decompress(self, C):
+        return
+
+    @Decompress.grad
+    def _(self, _C):
+        _C.decompress_gradient(out=Ellipsis)
+
+    @R2C.grad
+    def _(self, _C, _R):
+        if _C is Zero:
+            _R[...] = Zero
+        else:
+            _R[...] = _C.r2c_gradient()
 
     @VM.microcode(aout=['mesh'], ain=['mesh'])
     def Resample(self, mesh, Neff):
