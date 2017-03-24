@@ -70,6 +70,7 @@ def test_lpt_prior(comm):
     code = vm.code()
     code.Decompress(C='dlin_k')
     code.LPTDisplace(dlin_k='dlin_k', D1=1.0, v1=0, D2=0.0, v2=0.0)
+    code.Decompose()
     code.Paint()
     code.Chi2(variable='mesh')
     code.Prior(powerspectrum=lambda k : 1.0)
@@ -169,6 +170,7 @@ def test_kdk(comm):
 
     code.Decompress(C='dlin_k')
     code.KDKSimulation(dlin_k='dlin_k', mesh='mesh', cosmo=cosmo, astart=0.1, aend=1.0, Nsteps=5)
+    code.Decompose()
     code.Paint()
     code.Residual(data_x=data, sigma_x=sigma)
     code.Chi2(variable='residual')
