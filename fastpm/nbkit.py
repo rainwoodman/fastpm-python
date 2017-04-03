@@ -1,4 +1,4 @@
-from fastpm import Evolution, KickDriftKick, PerturbationGrowth
+from fastpm import Evolution
 from nbodykit.base.particles import ParticleSource, column
 
 from pmesh.pm import ParticleMesh, RealField
@@ -23,11 +23,10 @@ class FastPMParticleSource(ParticleSource):
         self.attrs['Nsteps'] = Nsteps
         self.attrs['boost'] = boost
 
-        self.evolution = KickDriftKick(self.linear.pm, B=boost, shift=0.5)
+        self.evolution = Evolution(self.linear.pm, B=boost, shift=0.5)
 
-        self.pt = PerturbationGrowth(self.cosmo)
-
-        self.model = self.evolution.simulation(self.pt, astart, aend, Nsteps)
+        self.model = self.evolution.code()
+        self.model.KDKSimulation(cosmo=self.cosmo, astart=astart, aend=aend, Nsteps=Nsteps, mesh='mesh', dlin_k='dlin_k')
         self.linear = linear
 
         H0 = 100.
