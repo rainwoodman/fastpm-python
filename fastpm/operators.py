@@ -18,9 +18,9 @@ def diff_kernel(dir, conjugate=False):
         else:
             factor = 1j
 
-        for ii, ni in zip(v.i, v.Nmesh):
+#        for ii, ni in zip(v.i, v.Nmesh):
             # any nyquist modes are set to 0 (False)
-            mask &=  ii != (ni // 2)
+#            mask &=  ii != (ni // 2)
 
         return (mask * v) * (factor * k[dir])
     return kernel
