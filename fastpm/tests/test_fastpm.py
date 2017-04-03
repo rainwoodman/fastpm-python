@@ -118,7 +118,7 @@ def _test_model(code, dlin_k, ampl):
     def gradient(dlin_k):
         tape = code.vm.tape()
         init = {'dlin_k': dlin_k}
-        code.compute(['chi2'], init, tape=tape, monitor=None)
+        chi2, tape = code.compute(['chi2'], init, return_tape=True, monitor=None)
         gcode = code.vm.gradient(tape)
         init = {'_chi2' : 1}
         return gcode.compute('_dlin_k', init, monitor=None)
