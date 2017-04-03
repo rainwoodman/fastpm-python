@@ -11,7 +11,9 @@ class FastPMParticleSource(ParticleSource):
         self.comm = linear.comm
 
         if cosmo is None:
-            self.cosmo = linear.Plin.cosmo
+            cosmo = linear.Plin.cosmo
+
+        self.cosmo = cosmo
 
         # the linear density field mesh
         self.linear = linear
