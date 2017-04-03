@@ -12,17 +12,17 @@ def laplace_kernel(k, v):
 
 def diff_kernel(dir, conjugate=False):
     def kernel(k, v):
-        mask = numpy.ones(v.shape, '?')
+        mask = numpy.zeros(v.shape, '?')
         if conjugate:
             factor = -1j
         else:
             factor = 1j
 
-#        for ii, ni in zip(v.i, v.Nmesh):
+        for ii, ni in zip(v.i, v.Nmesh):
             # any nyquist modes are set to 0 (False)
-#            mask &=  ii != (ni // 2)
+            mask |=  ii == (ni // 2)
 
-        return (mask * v) * (factor * k[dir])
+        return (~mask * v) * (factor * k[dir])
     return kernel
 
 def create_grid(basepm, shift=0, dtype='f4'):
