@@ -15,20 +15,20 @@ from ..engine import FastPMEngine
 pm = ParticleMesh(BoxSize=1.0, Nmesh=(4, 4, 4), dtype='f8')
 
 def test_force():
-    def transfer(k): return 2.0
     engine = FastPMEngine(pm)
     code = CodeSegment(engine)
     code.r2c(real='r', complex='c')
-    code.force(density='c', s='s', force='force')
+    code.decompose(s='s', layout='layout')
+    code.force_compute(density_k='c', s='s', layout='layout', force='force', force_factor=1.0)
 
-    s = engine.q * 0.0 + 0.1
-    field = pm.generate_whitenoise(seed=1234).c2r()
-
+    s = engine.q * 0.0 + 0.2
+    field = engine.fengine.pm.generate_whitenoise(seed=1234).c2r()
     check_grad(code, 'force', 's', init={'r': field, 's': s}, eps=1e-4,
                 rtol=1e-2)
 
-    check_grad(code, 'force', 'r', init={'r': field, 's': s}, eps=1e-4,
-                rtol=1e-2)
+    eps = field.cnorm() ** 0.5 * 1e-3
+    check_grad(code, 'force', 'r', init={'r': field, 's': s}, eps=eps,
+                rtol=1e-3)
 
 def test_solve_linear_displacement():
     engine = FastPMEngine(pm)

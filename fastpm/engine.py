@@ -80,7 +80,22 @@ class FastPMEngine(ParticleMeshEngine):
         pt = PerturbationGrowth(cosmo)
         code = CodeSegment(engine)
         code.solve_lpt(cosmo=cosmo, aend=asteps[0], dlinear_k=dlinear_k, s='s', v='v')
-        engine
+
+        def K(ai, af, ar):
+            return 1 / (ar ** 2 * pt.E(ar)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ar)
+        def D(ai, af, ar):
+            return 1 / (ar ** 3 * pt.E(ar)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ar)
+
+        for ai, af in zip(a[:-1], a[1:]):
+            ac = (ai * af) ** 0.5
+            self.kick(v=v, f='f', kick_factor=K(ai, ac, ai))
+            self.drift(x=x, v=v, drift_fractor=D(ai, ac, ac))
+            self.drift(x=x, v=v, drift_factor=D(ac, af, ac))
+            self.force_prepare(density_k='density_k', s=s, layout='layout')
+            self.force(density_k='density_k', s=s, force='f', force_factor=1.5 * pt.Om0)
+            self.kick(v=v, f='f', kick_factor=K(ac, af, af))
+
+
     @programme(ain=['source_k'], aout=['source2_k'])
     def generate_2nd_order_source(engine, source_k, source2_k):
         code = CodeSegment(engine)
@@ -125,25 +140,57 @@ class FastPMEngine(ParticleMeshEngine):
         return code
 
     @programme(aout=['force'], ain=['s'])
-    def force_paint(engine, force, s):
-        code = CodeSegment(engine.fengine)
-        code.paint(s='s', d
+    def force(engine, force, s, force_factor):
+        code = CodeSegment(engine)
+        code.force_prepare(s=s, density_k='density_k', layout='layout')
+        code.force_compute(s=s, density_k='density_k', layout='layout', force=force, 
+                force_factor=force_factor)
+        return code
 
-    @programme(aout=['force'], ain=['density_k', 's'])
-    def force(engine, force, density_k, s):
+    @programme(aout=['density_k', 'layout'], ain=['s'])
+    def force_prepare(engine, density_k, s, layout):
+        code = CodeSegment(engine.fengine)
+        code.decompose(s=s, layout=layout)
+        code.paint(s=s, layout=layout, mesh=density_k)
+        return code
+
+    @programme(aout=['force'], ain=['density_k', 's', 'layout'])
+    def force_compute(engine, force, density_k, s, layout, force_factor):
         code = CodeSegment(engine.fengine)
         code.defaults['force'] = numpy.zeros_like(engine.q)
-        code.decompose(s=s, layout='layout')
+        def assert_pm(field, pm):
+            assert field.pm == pm
+
+        code.inspect(inspector=lambda engine, frontier:
+            assert_pm(frontier['density_k'], code.engine.pm))
+
         for d in range(engine.pm.ndim):
             def tf(k):
                 k2 = sum(ki ** 2 for ki in k)
                 mask = k2 == 0
                 k2[mask] = 1.0
                 return 1j * k[d] / k2 * ~mask
-            code.assign(x='density', y='complex')
+            code.assign(x='density_k', y='complex')
             code.transfer(complex='complex', tf=tf)
             code.c2r(complex='complex', real='real')
             code.readout(value='force1', mesh='real', s=s, layout='layout')
             code.assign_component(attribute='force', dim=d, value='force1')
+        code.multiply(x1='force', x2=Literal(force_factor), y='force')
+
         return code
 
+    @statement(aout=['v'], ain=['v', 'f'])
+    def kick(engine, v, f, kick_factor):
+        v[...] += f * kick_factor
+
+    @kick.defvjp
+    def _(engine, _f, _v, kick_factor):
+        _f[...] = _v * kick_factor
+
+    @statement(aout=['x'], ain=['x', 'v'])
+    def drift(engine, x, v, drift_factor):
+        x[...] += v * drift_factor
+
+    @drift.defvjp
+    def _(engine, _x, _v, drift_factor):
+        _v[...] = _x * drift_factor
