@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import numpy
-from mpi4py_test import MPITest
+from runtests.mpi import MPITest
 from numpy.testing import assert_allclose
 
 import fastpm
