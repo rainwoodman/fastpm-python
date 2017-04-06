@@ -11,8 +11,6 @@ from abopt.engines.pmesh import (
         ParticleMesh, RealField, ComplexField
         )
 
-from fastpm.perturbation import PerturbationGrowth
-
 class FastPMEngine(ParticleMeshEngine):
     def __init__(self, pm, B=1):
         ParticleMeshEngine.__init__(self, pm)
@@ -58,13 +56,12 @@ class FastPMEngine(ParticleMeshEngine):
         _x1[...] = _y * c1
         _x2[...] = _y * c2
 
-    @programme(ain=['dlinear_k'], aout=['s', 'v'])
-    def solve_lpt(engine, cosmo, aend, dlinear_k, s, v):
+    @programme(ain=['dlinear_k'], aout=['s', 'v', 's1', 's2'])
+    def solve_lpt(engine, pt, aend, dlinear_k, s, v, s1, s2):
         code = CodeSegment(engine)
-        pt = PerturbationGrowth(cosmo)
-        code.solve_linear_displacement(source_k='dlinear_k', s='s1')
+        code.solve_linear_displacement(source_k='dlinear_k', s=s1)
         code.generate_2nd_order_source(source_k='dlinear_k', source2_k='source2_k')
-        code.solve_linear_displacement(source_k='source2_k', s='s2')
+        code.solve_linear_displacement(source_k='source2_k', s=s2)
 
         code.bilinear(x1='s1', c1=pt.D1(aend),
                       x2='s2', c2=pt.D2(aend),
@@ -72,14 +69,13 @@ class FastPMEngine(ParticleMeshEngine):
 
         code.bilinear(x1='s1', c1=pt.f1(aend) * aend ** 2 * pt.E(aend) * pt.D1(aend),
                       x2='s2', c2=pt.f2(aend) * aend ** 2 * pt.E(aend) * pt.D2(aend),
-                       y='s')
+                       y='v')
         return code
 
     @programme(ain=['dlinear_k'], aout=['s', 'v'])
-    def solve_fastpm(engine, cosmo, asteps, dlinear_k, s, v):
-        pt = PerturbationGrowth(cosmo)
+    def solve_fastpm(engine, pt, asteps, dlinear_k, s, v):
         code = CodeSegment(engine)
-        code.solve_lpt(cosmo=cosmo, aend=asteps[0], dlinear_k=dlinear_k, s='s', v='v')
+        code.solve_lpt(pt=pt, aend=asteps[0], dlinear_k=dlinear_k, s='s', v='v')
 
         def K(ai, af, ar):
             return 1 / (ar ** 2 * pt.E(ar)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ar)
@@ -94,7 +90,7 @@ class FastPMEngine(ParticleMeshEngine):
             self.force_prepare(density_k='density_k', s=s, layout='layout')
             self.force(density_k='density_k', s=s, force='f', force_factor=1.5 * pt.Om0)
             self.kick(v=v, f='f', kick_factor=K(ac, af, af))
-
+        return code
 
     @programme(ain=['source_k'], aout=['source2_k'])
     def generate_2nd_order_source(engine, source_k, source2_k):
