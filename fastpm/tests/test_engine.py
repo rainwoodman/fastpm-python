@@ -99,6 +99,34 @@ def test_solve_lpt():
     check_grad(code, 'v', 'whitenoise', init={'whitenoise': field}, eps=eps,
                 rtol=1e-2)
 
+def test_solve_fastpm():
+    pm = ParticleMesh(BoxSize=128.0, Nmesh=(4, 4, 4), dtype='f8')
+    def pk(k):
+        p = (k / 0.1) ** -3 * .4e4
+        return p
+    cosmo = lambda : None
+
+    cosmo.Om0 = 0.3
+    cosmo.Ode0 = 0.7
+    cosmo.Ok0 = 0.0
+    pt = PerturbationGrowth(cosmo)
+
+    engine = FastPMEngine(pm)
+    engine.q[...] += 0.5 * pm.BoxSize / pm.Nmesh
+
+    code = CodeSegment(engine)
+    code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
+    code.solve_fastpm(pt=pt, dlinear_k='dlinear_k', asteps=[0.1, 0.5, 1.0], s='s', v='v', s1='s1', s2='s2')
+
+    field = pm.generate_whitenoise(seed=1234).c2r()
+
+    eps = field.cnorm() ** 0.5 * 1e-3
+
+    check_grad(code, 's', 'whitenoise', init={'whitenoise': field}, eps=eps,
+                rtol=1e-2)
+    check_grad(code, 'v', 'whitenoise', init={'whitenoise': field}, eps=eps,
+                rtol=1e-2)
+
 def test_generate_2nd_order_source():
     engine = FastPMEngine(pm)
     code = CodeSegment(engine)

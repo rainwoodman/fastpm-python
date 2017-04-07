@@ -72,24 +72,25 @@ class FastPMEngine(ParticleMeshEngine):
                        y='v')
         return code
 
-    @programme(ain=['dlinear_k'], aout=['s', 'v'])
-    def solve_fastpm(engine, pt, asteps, dlinear_k, s, v):
+    @programme(ain=['dlinear_k'], aout=['s', 'v', 's1', 's2'])
+    def solve_fastpm(engine, pt, asteps, dlinear_k, s, v, s1, s2):
         code = CodeSegment(engine)
-        code.solve_lpt(pt=pt, aend=asteps[0], dlinear_k=dlinear_k, s='s', v='v')
+        code.solve_lpt(pt=pt, aend=asteps[0], dlinear_k=dlinear_k, s=s, v=v, s1=s1, s2=s2)
 
         def K(ai, af, ar):
             return 1 / (ar ** 2 * pt.E(ar)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ar)
         def D(ai, af, ar):
             return 1 / (ar ** 3 * pt.E(ar)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ar)
 
-        for ai, af in zip(a[:-1], a[1:]):
+        code.defaults['f'] = numpy.zeros_like(engine.q)
+
+        for ai, af in zip(asteps[:-1], asteps[1:]):
             ac = (ai * af) ** 0.5
-            self.kick(v=v, f='f', kick_factor=K(ai, ac, ai))
-            self.drift(x=x, v=v, drift_fractor=D(ai, ac, ac))
-            self.drift(x=x, v=v, drift_factor=D(ac, af, ac))
-            self.force_prepare(density_k='density_k', s=s, layout='layout')
-            self.force(density_k='density_k', s=s, force='f', force_factor=1.5 * pt.Om0)
-            self.kick(v=v, f='f', kick_factor=K(ac, af, af))
+            code.kick(v=v, f='f', kick_factor=K(ai, ac, ai))
+            code.drift(x=s, v=v, drift_factor=D(ai, ac, ac))
+            code.drift(x=s, v=v, drift_factor=D(ac, af, ac))
+            code.force(s=s, force='f', force_factor=1.5 * pt.Om0)
+            code.kick(v=v, f='f', kick_factor=K(ac, af, af))
         return code
 
     @programme(ain=['source_k'], aout=['source2_k'])
@@ -147,7 +148,8 @@ class FastPMEngine(ParticleMeshEngine):
     def force_prepare(engine, density_k, s, layout):
         code = CodeSegment(engine.fengine)
         code.decompose(s=s, layout=layout)
-        code.paint(s=s, layout=layout, mesh=density_k)
+        code.paint(s=s, layout=layout, mesh='density')
+        code.r2c(complex=density_k, real='density')
         return code
 
     @programme(aout=['force'], ain=['density_k', 's', 'layout'])
