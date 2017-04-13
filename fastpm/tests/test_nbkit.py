@@ -24,4 +24,4 @@ def test_nbkit(comm):
     sim = FastPMParticleSource(linear, boost=2, Nsteps=5, cosmo=cosmo)
     fof = FOF(sim, 0.2, 12)
     features = fof.find_features()
-    assert_allclose(features.csize, 610, rtol=0.01)
+    assert_allclose(features.csize, 574, rtol=0.01)

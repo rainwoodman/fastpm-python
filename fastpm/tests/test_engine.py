@@ -12,7 +12,7 @@ from abopt.engines.pmesh import ParticleMesh, RealField, ComplexField, check_gra
 
 from ..engine import FastPMEngine
 
-from ..perturbation import PerturbationGrowth
+from ..perturbation import PerturbationTheory
 
 pm = ParticleMesh(BoxSize=1.0, Nmesh=(4, 4, 4), dtype='f8')
 
@@ -26,7 +26,7 @@ def pk(k):
     p = (k / 0.01) ** -3 * 50000
     return p
 
-pt = PerturbationGrowth(cosmo)
+pt = PerturbationTheory(cosmo)
 
 from nbodykit.source.mesh.memory import MemoryMesh
 from nbodykit.algorithms.fftpower import FFTPower

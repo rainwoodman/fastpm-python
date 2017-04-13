@@ -5,7 +5,7 @@ import logging
 from abopt.vmad import VM, Zero, microcode
 from pmesh.pm import ParticleMesh, RealField
 
-from fastpm.perturbation import PerturbationGrowth
+from fastpm.perturbation import PerturbationTheory
 
 import fastpm.operators as operators
 
@@ -153,7 +153,7 @@ class Evolution(MPINumeric, ParticleMeshVM):
 
     @VM.programme(aout=['mesh'], ain=['dlin_k'])
     def LPTSimulation(self, cosmo, aend, order, mesh, dlin_k):
-        pt = PerturbationGrowth(cosmo)
+        pt = PerturbationTheory(cosmo)
         if order == 1:
             self.LPTDisplace(D1=pt.D1(aend), 
                           v1=pt.f1(aend) * pt.D1(aend) * aend ** 2 * pt.E(aend),
@@ -172,7 +172,7 @@ class Evolution(MPINumeric, ParticleMeshVM):
 
     @VM.programme(aout=['mesh'], ain=['dlin_k'])
     def KDKSimulation(self, cosmo, astart, aend, Nsteps, mesh, dlin_k):
-        pt = PerturbationGrowth(cosmo)
+        pt = PerturbationTheory(cosmo)
         self.LPTDisplace(D1=pt.D1(astart), 
                       v1=pt.f1(astart) * pt.D1(astart) * astart ** 2 * pt.E(astart),
                       D2=pt.D2(astart),

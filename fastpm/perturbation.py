@@ -1,7 +1,7 @@
 import numpy
 from scipy.integrate import odeint
 
-class PerturbationGrowth(object):
+class PerturbationTheory(object):
     """ Perturbation Growth coefficients of Matter
 
         2-LPT is implemented Radiation in the background is ignored.
