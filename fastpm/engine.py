@@ -12,25 +12,47 @@ from abopt.engines.pmesh import (
         )
 
 class FastPMEngine(ParticleMeshEngine):
-    def __init__(self, pm, B=1):
+    def __init__(self, pm, B=1, shift=0.5):
         ParticleMeshEngine.__init__(self, pm)
+        self.q[...] += shift * pm.BoxSize / pm.Nmesh
+        # force pm is higher resolution than the particle pm.
         fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm)
         self.fengine = ParticleMeshEngine(fpm, q=self.q)
 
     @programme(ain=['whitenoise'], aout=['dlinear_k'])
     def create_linear_field(engine, whitenoise, powerspectrum, dlinear_k):
+        """ Generate a linear over-density field
+
+            Parameters
+            ----------
+            whitenoise : RealField, in
+                the white noise field
+            powerspectrum : function, ex
+                P(k) in Mpc/h units.
+            dlinear_k : ComplexField, out
+                the over-density field in fourier space
+        """
         code = CodeSegment(engine)
         code.r2c(real=whitenoise, complex=dlinear_k)
         def tf(k):
             k2 = sum(ki**2 for ki in k)
             r = (powerspectrum(k2 ** 0.5) * (1.0 / engine.pm.BoxSize).prod()) ** 0.5
-            r[k2 == 0] = 1.0
+            r[k2 == 0] = 0.0
             return r
         code.transfer(complex=dlinear_k, tf=tf)
         return code
 
     @programme(ain=['source_k'], aout=['s'])
     def solve_linear_displacement(engine, source_k, s):
+        """ Solve linear order displacement from a source.
+
+            Parameters
+            ----------
+            source_k: ComplexField, in
+                the source, over-density. Zero mode is neglected.
+            s : array, out
+                linear displacement induced by the source.
+        """
         code = CodeSegment(engine)
         code.decompose(s=Literal(ZERO), layout='layout')
         code.defaults['s'] = numpy.zeros_like(engine.q)
@@ -58,6 +80,21 @@ class FastPMEngine(ParticleMeshEngine):
 
     @programme(ain=['dlinear_k'], aout=['s', 'v', 's1', 's2'])
     def solve_lpt(engine, pt, aend, dlinear_k, s, v, s1, s2):
+        """ Solve N-body with Lagrangian perturbation theory
+
+            Parameters
+            ----------
+            dlinear_k: ComplexField, in
+                linear overdensity field
+            s : Array, out
+                displaement of particles
+            v : Array, out
+                conjugate momentum of particles, a**2 H0 v_pec
+            s1 : Array, out
+                First order LPT displacement
+            s2 : Array, out
+                Second order LPT displacement
+        """
         code = CodeSegment(engine)
         code.solve_linear_displacement(source_k='dlinear_k', s=s1)
         code.generate_2nd_order_source(source_k='dlinear_k', source2_k='source2_k')
@@ -65,15 +102,33 @@ class FastPMEngine(ParticleMeshEngine):
 
         code.bilinear(x1='s1', c1=pt.D1(aend),
                       x2='s2', c2=pt.D2(aend),
-                       y='s')
+                       y=s)
 
         code.bilinear(x1='s1', c1=pt.f1(aend) * aend ** 2 * pt.E(aend) * pt.D1(aend),
                       x2='s2', c2=pt.f2(aend) * aend ** 2 * pt.E(aend) * pt.D2(aend),
-                       y='v')
+                       y=v)
         return code
 
     @programme(ain=['dlinear_k'], aout=['s', 'v', 's1', 's2'])
     def solve_fastpm(engine, pt, asteps, dlinear_k, s, v, s1, s2):
+        """ Solve N-body with FastPM
+
+            Parameters
+            ----------
+            dlinear_k: ComplexField, in
+                linear overdensity field
+            asteps : Array, 1d, ex
+                time steps. LPT is used to solve asteps[0], then a KDK scheme is used
+                to evolve the field to asteps[-1]
+            s : Array, out
+                displaement of particles
+            v : Array, out
+                conjugate momentum of particles, a**2 H0 v_pec
+            s1 : Array, out
+                First order LPT displacement
+            s2 : Array, out
+                Second order LPT displacement
+        """
         code = CodeSegment(engine)
         code.solve_lpt(pt=pt, aend=asteps[0], dlinear_k=dlinear_k, s=s, v=v, s1=s1, s2=s2)
 
@@ -84,6 +139,7 @@ class FastPMEngine(ParticleMeshEngine):
 
         code.defaults['f'] = numpy.zeros_like(engine.q)
 
+        code.force(s=s, force='f', force_factor=1.5 * pt.Om0)
         for ai, af in zip(asteps[:-1], asteps[1:]):
             ac = (ai * af) ** 0.5
             code.kick(v=v, f='f', kick_factor=K(ai, ac, ai))
@@ -95,6 +151,9 @@ class FastPMEngine(ParticleMeshEngine):
 
     @programme(ain=['source_k'], aout=['source2_k'])
     def generate_2nd_order_source(engine, source_k, source2_k):
+        """ Generate 2nd order LPT source from 1st order LPT source
+
+        """
         code = CodeSegment(engine)
         if engine.pm.ndim < 3:
             code.defaults['source2_k'] = engine.pm.create(mode='complex', zeros=True)
@@ -138,10 +197,32 @@ class FastPMEngine(ParticleMeshEngine):
 
     @programme(aout=['force'], ain=['s'])
     def force(engine, force, s, force_factor):
+        """ Compute gravity force on paticles.
+
+            Parameters
+            ----------
+            force : array, out
+                force of particles
+            s : array, in
+                displacement of particles, producing a density field
+            force_factor : float, ex
+                 usually 1.5 * Om0, the scaling of the force
+
+        """
         code = CodeSegment(engine)
         code.force_prepare(s=s, density_k='density_k', layout='layout')
         code.force_compute(s=s, density_k='density_k', layout='layout', force=force, 
                 force_factor=force_factor)
+        return code
+
+    @programme(aout=['density'], ain=['s'])
+    def paint_simple(engine, density, s):
+        """ Paint particles to a mesh with proper domain decomposition
+
+        """
+        code = CodeSegment(engine)
+        code.decompose(s=s, layout='layout')
+        code.paint(s=s, layout='layout', mesh=density)
         return code
 
     @programme(aout=['density_k', 'layout'], ain=['s'])
@@ -163,7 +244,7 @@ class FastPMEngine(ParticleMeshEngine):
             assert_pm(frontier['density_k'], code.engine.pm))
 
         for d in range(engine.pm.ndim):
-            def tf(k):
+            def tf(k, d=d):
                 k2 = sum(ki ** 2 for ki in k)
                 mask = k2 == 0
                 k2[mask] = 1.0

@@ -16,21 +16,40 @@ from ..perturbation import PerturbationGrowth
 
 pm = ParticleMesh(BoxSize=1.0, Nmesh=(4, 4, 4), dtype='f8')
 
+cosmo = lambda : None
+
+cosmo.Om0 = 0.3
+cosmo.Ode0 = 0.7
+cosmo.Ok0 = 0.0
+
+def pk(k):
+    p = (k / 0.01) ** -3 * 50000
+    return p
+
+pt = PerturbationGrowth(cosmo)
+
+from nbodykit.source.mesh.memory import MemoryMesh
+from nbodykit.algorithms.fftpower import FFTPower
+
 def test_force():
+    pm = ParticleMesh(BoxSize=1.0, Nmesh=(4, 4, 4), dtype='f8')
     engine = FastPMEngine(pm)
     code = CodeSegment(engine)
-    code.r2c(real='r', complex='c')
-    code.decompose(s='s', layout='layout')
-    code.force_compute(density_k='c', s='s', layout='layout', force='force', force_factor=1.0)
+    code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
+    code.solve_lpt(pt=pt, dlinear_k='dlinear_k', aend=0.1, s='s', v='v', s1='s1', s2='s2')
+    code.force(s='s', force='force', force_factor=1.0)
 
-    s = engine.q * 0.0 + 0.2
-    field = engine.fengine.pm.generate_whitenoise(seed=1234).c2r()
-    check_grad(code, 'force', 's', init={'r': field, 's': s}, eps=1e-4,
+    field = engine.pm.generate_whitenoise(seed=1234).c2r()
+    eps = field.cnorm() ** 0.5 * 1e-3
+
+    from fastpm.operators import gravity
+    s, force = code.compute(['s', 'force'], init={'whitenoise' : field})
+    f_truth = gravity(s + engine.q, engine.pm, 1.0)
+    assert_allclose(force, f_truth, atol=1e-8, rtol=1e-4)
+
+    check_grad(code, 'force', 'whitenoise', init={'whitenoise': field}, eps=eps,
                 rtol=1e-2)
 
-    eps = field.cnorm() ** 0.5 * 1e-3
-    check_grad(code, 'force', 'r', init={'r': field, 's': s}, eps=eps,
-                rtol=1e-3)
 
 def test_solve_linear_displacement():
     engine = FastPMEngine(pm)
@@ -55,18 +74,8 @@ def test_solve_linear_displacement():
 
 def test_solve_lpt():
     pm = ParticleMesh(BoxSize=128.0, Nmesh=(4, 4, 4), dtype='f8')
-    def pk(k):
-        p = (k / 0.1) ** -3 * .4e4
-        return p
-    cosmo = lambda : None
-
-    cosmo.Om0 = 0.3
-    cosmo.Ode0 = 0.7
-    cosmo.Ok0 = 0.0
-    pt = PerturbationGrowth(cosmo)
 
     engine = FastPMEngine(pm)
-    engine.q[...] += 0.5 * pm.BoxSize / pm.Nmesh
 
     code = CodeSegment(engine)
     code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
@@ -101,24 +110,14 @@ def test_solve_lpt():
 
 def test_solve_fastpm():
     pm = ParticleMesh(BoxSize=128.0, Nmesh=(4, 4, 4), dtype='f8')
-    def pk(k):
-        p = (k / 0.1) ** -3 * .4e4
-        return p
-    cosmo = lambda : None
-
-    cosmo.Om0 = 0.3
-    cosmo.Ode0 = 0.7
-    cosmo.Ok0 = 0.0
-    pt = PerturbationGrowth(cosmo)
 
     engine = FastPMEngine(pm)
-    engine.q[...] += 0.5 * pm.BoxSize / pm.Nmesh
 
     code = CodeSegment(engine)
     code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
     code.solve_fastpm(pt=pt, dlinear_k='dlinear_k', asteps=[0.1, 0.5, 1.0], s='s', v='v', s1='s1', s2='s2')
-
-    field = pm.generate_whitenoise(seed=1234).c2r()
+    code.paint_simple(s='s', density='density')
+    field = pm.generate_whitenoise(seed=1234, unitary=True).c2r()
 
     eps = field.cnorm() ** 0.5 * 1e-3
 
@@ -126,6 +125,28 @@ def test_solve_fastpm():
                 rtol=1e-2)
     check_grad(code, 'v', 'whitenoise', init={'whitenoise': field}, eps=eps,
                 rtol=1e-2)
+    check_grad(code, 'density', 'whitenoise', init={'whitenoise': field}, eps=eps,
+                rtol=1e-2)
+
+def test_solve_fastpm_linear():
+    pm = ParticleMesh(BoxSize=1024.0, Nmesh=(128, 128, 128), dtype='f8')
+
+    engine = FastPMEngine(pm)
+
+    code = CodeSegment(engine)
+    code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
+    code.solve_fastpm(pt=pt, dlinear_k='dlinear_k', asteps=[0.1, 0.5, 1.0], s='s', v='v', s1='s1', s2='s2')
+    code.paint_simple(s='s', density='density')
+    field = pm.generate_whitenoise(seed=1234, unitary=True).c2r()
+
+    density, dlinear_k, s = code.compute(['density', 'dlinear_k', 's'], init={'whitenoise' : field})
+    density_k = density.r2c()
+    p_lin= FFTPower(MemoryMesh(dlinear_k), mode='1d')
+    p_nonlin = FFTPower(MemoryMesh(density), mode='1d')
+
+    # the simulation shall do a linear growth
+    t1 = abs((p_nonlin.power['power'] / p_lin.power['power']) ** 0.5)
+    assert_allclose(t1[1:4], 1.0, rtol=5e-2)
 
 def test_generate_2nd_order_source():
     engine = FastPMEngine(pm)
