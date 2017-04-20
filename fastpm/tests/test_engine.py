@@ -23,7 +23,7 @@ cosmo.Ode0 = 0.7
 cosmo.Ok0 = 0.0
 
 def pk(k):
-    p = (k / 0.01) ** -3 * 50000
+    p = (k / 0.01) ** -3 * 80000
     return p
 
 pt = PerturbationTheory(cosmo)
@@ -32,7 +32,7 @@ from nbodykit.source.mesh.memory import MemoryMesh
 from nbodykit.algorithms.fftpower import FFTPower
 
 def test_force():
-    pm = ParticleMesh(BoxSize=1.0, Nmesh=(4, 4, 4), dtype='f8')
+    pm = ParticleMesh(BoxSize=8.0, Nmesh=(4, 4, 4), dtype='f8')
     engine = FastPMEngine(pm)
     code = CodeSegment(engine)
     code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
@@ -73,9 +73,9 @@ def test_solve_linear_displacement():
     assert_allclose(s, s1_truth, rtol=1e-5)
 
 def test_solve_lpt():
-    pm = ParticleMesh(BoxSize=128.0, Nmesh=(4, 4, 4), dtype='f8')
+    pm = ParticleMesh(BoxSize=8.0, Nmesh=(4, 4, 4), dtype='f8')
 
-    engine = FastPMEngine(pm)
+    engine = FastPMEngine(pm, shift=0.5, B=1)
 
     code = CodeSegment(engine)
     code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
@@ -109,13 +109,14 @@ def test_solve_lpt():
                 rtol=1e-2)
 
 def test_solve_fastpm():
-    pm = ParticleMesh(BoxSize=128.0, Nmesh=(4, 4, 4), dtype='f8')
+    pm = ParticleMesh(BoxSize=8.0, Nmesh=(4, 4, 4), dtype='f8')
 
-    engine = FastPMEngine(pm)
+    engine = FastPMEngine(pm, shift=0.5, B=1)
 
     code = CodeSegment(engine)
     code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
-    code.solve_fastpm(pt=pt, dlinear_k='dlinear_k', asteps=[0.1, 0.5, 1.0], s='s', v='v', s1='s1', s2='s2')
+    code.solve_fastpm(pt=pt, dlinear_k='dlinear_k', asteps=[0.1, 1.0], s='s', v='v', s1='s1', s2='s2')
+#    code.solve_fastpm(pt=pt, dlinear_k='dlinear_k', asteps=[1.0], s='s', v='v', s1='s1', s2='s2')
     code.paint_simple(s='s', density='density')
     field = pm.generate_whitenoise(seed=1234, unitary=True).c2r()
 
