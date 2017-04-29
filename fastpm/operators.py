@@ -10,6 +10,10 @@ def laplace_kernel(k, v):
     b[mask] = 0
     return b
 
+def nyquist_kernel(k, v):
+    mask = ~numpy.bitwise_and.reduce([(ii == 0) | (ii == ni // 2) for ii, ni in zip(v.i, v.Nmesh)])
+    return mask * v
+
 def diff_kernel(dir, conjugate=False):
     def kernel(k, v):
         mask = numpy.zeros(v.shape, '?')
@@ -18,11 +22,7 @@ def diff_kernel(dir, conjugate=False):
         else:
             factor = 1j
 
-        for ii, ni in zip(v.i, v.Nmesh):
-            # any nyquist modes are set to 0 (False)
-            mask |=  ii == (ni // 2)
-
-        return (~mask * v) * (factor * k[dir])
+        return v * (factor * k[dir])
     return kernel
 
 def create_grid(basepm, shift=0, dtype='f4'):
@@ -64,6 +64,7 @@ def lpt1(dlin_k, q, method='cic'):
     for d in range(len(basepm.Nmesh)):
         disp = dlin_k.apply(laplace_kernel) \
                     .apply(diff_kernel(d), out=Ellipsis) \
+                    .apply(nyquist_kernel, out=Ellipsis) \
                     .c2r(out=Ellipsis)
         local_disp = disp.readout(local_q, method=method)
         source[..., d] = layout.gather(local_disp)
@@ -91,7 +92,8 @@ def lpt1_gradient(basepm, q, grad_disp, method='cic'):
         grad_disp_d.readout_gradient(local_q, local_grad_disp_d, method=method, out_self=grad_disp_d, out_pos=False)
         grad_delta_d_k = grad_disp_d.c2r_gradient(out=Ellipsis) \
                          .apply(laplace_kernel, out=Ellipsis) \
-                         .apply(diff_kernel(d, conjugate=True), out=Ellipsis)
+                         .apply(diff_kernel(d, conjugate=True), out=Ellipsis) \
+                         .apply(nyquist_kernel, out=Ellipsis)
 
         grad.value[...] += grad_delta_d_k.value
 
@@ -208,6 +210,7 @@ def gravity(x, pm, factor, f=None):
     for d in range(field.ndim):
         force_d = deltak.apply(laplace_kernel) \
                   .apply(diff_kernel(d), out=Ellipsis) \
+                  .apply(nyquist_kernel, out=Ellipsis) \
                   .c2r(out=Ellipsis)
         force_d.readout(x, layout=layout, out=f[..., d])
     f[...] *= factor
@@ -229,6 +232,7 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
         # forward
         force_d = deltak.apply(laplace_kernel) \
                   .apply(diff_kernel(d), out=Ellipsis) \
+                  .apply(nyquist_kernel, out=Ellipsis) \
                   .c2r(out=Ellipsis)
 
         grad_force_d, grad_x_d = force_d.readout_gradient(
@@ -236,7 +240,8 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
 
         grad_deltak_d = grad_force_d.c2r_gradient(out=Ellipsis) \
                         .apply(laplace_kernel, out=Ellipsis) \
-                        .apply(diff_kernel(d, conjugate=True), out=Ellipsis)
+                        .apply(diff_kernel(d, conjugate=True), out=Ellipsis) \
+                      .  apply(nyquist_kernel, out=Ellipsis)
         grad_deltak[...] += grad_deltak_d
         out_x[...] += grad_x_d
 

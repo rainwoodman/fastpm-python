@@ -1,9 +1,10 @@
-from fastpm import Evolution
-from nbodykit.base.particles import ParticleSource, column
+from fastpm.engine import FastPMEngine, ParticleMesh, CodeSegment
+from fastpm.perturbation import PerturbationTheory
 
-from pmesh.pm import ParticleMesh, RealField
+from nbodykit.base.catalog import CatalogSource, column
+import numpy
 
-class FastPMParticleSource(ParticleSource):
+class FastPMCatalogSource(CatalogSource):
     def __repr__(self):
         return "FastPMSimulation()" %self.attrs
 
@@ -20,21 +21,24 @@ class FastPMParticleSource(ParticleSource):
 
         self.attrs.update(linear.attrs)
 
+        asteps = numpy.linspace(astart, aend, Nsteps)
         self.attrs['astart'] = astart
         self.attrs['aend'] = aend
         self.attrs['Nsteps'] = Nsteps
+        self.attrs['asteps'] = asteps
         self.attrs['boost'] = boost
 
-        self.evolution = Evolution(self.linear.pm, B=boost, shift=0.5)
+        pt = PerturbationTheory(cosmo)
 
-        self.model = self.evolution.code()
-        self.model.KDKSimulation(cosmo=self.cosmo, astart=astart, aend=aend, Nsteps=Nsteps, mesh='mesh', dlin_k='dlin_k')
+        engine = FastPMEngine(self.linear.pm, B=boost, shift=0.5)
+        self.model = CodeSegment(engine)
+        self.model.solve_fastpm(pt=pt, asteps=asteps, dlinear_k='dlinear_k', s='s', v='v')
         self.linear = linear
 
         H0 = 100.
         self.RSD = 1.0 / (H0 * aend * self.cosmo.efunc(1.0 / aend - 1))
 
-        ParticleSource.__init__(self, comm=linear.comm, use_cache=False)
+        CatalogSource.__init__(self, comm=linear.comm, use_cache=False)
 
         self.update_csize()
 
@@ -43,11 +47,11 @@ class FastPMParticleSource(ParticleSource):
 
     @property
     def size(self):
-        return len(self.evolution.q)
+        return len(self.model.engine.q)
 
     def _run(self):
-        s, p = self.model.compute(['s', 'p'], init={'dlin_k': self.linear.to_field(mode='complex')})
-        q = self.evolution.q
+        s, p = self.model.compute(['s', 'v'], init={'dlinear_k': self.linear.to_field(mode='complex')})
+        q = self.model.engine.q
         self['Displacement'] = s
         self['InitialPosition'] = q
         self['ConjugateMomentum'] = p # a**2 H0 v_pec
