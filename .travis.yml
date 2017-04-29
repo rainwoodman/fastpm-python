@@ -1,8 +1,8 @@
 language: c
-#cache:
-#  directories:
-#  - "$HOME/.cache/pip"
-#  - "$HOME/.conda"
+cache:
+  directories:
+  - "$HOME/.cache/pip"
+  - "$HOME/.conda"
 env:
   global:
   - NUMPY_VERSION=1.11
@@ -19,6 +19,7 @@ before_install:
 - source activate test
 - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py scipy astropy
 - conda install --yes -c bccp bigfile mpi4py_test pfft-python nbodykit runtests
+- pip install -U --no-deps nbodykit
 - pip install -U --no-deps pmesh
 - pip install -U --no-deps abopt
 
