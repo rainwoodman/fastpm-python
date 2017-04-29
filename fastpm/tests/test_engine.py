@@ -44,7 +44,7 @@ def test_force():
 
     from fastpm.operators import gravity
     s, force = code.compute(['s', 'force'], init={'whitenoise' : field})
-    f_truth = gravity(s + engine.q, engine.pm, 1.0)
+    f_truth = gravity(engine.get_x(s), engine.pm, 1.0)
     assert_allclose(force, f_truth, atol=1e-8, rtol=1e-4)
 
     check_grad(code, 'force', 'whitenoise', init={'whitenoise': field}, eps=eps,
