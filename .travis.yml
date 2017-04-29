@@ -19,14 +19,14 @@ before_install:
 - source activate test
 - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py scipy astropy
 - conda install --yes -c bccp bigfile mpi4py_test pfft-python nbodykit
-- pip install pmesh
-- pip install abopt
+- pip install -U --no-deps pmesh
+- pip install -U --no-deps abopt
 
 install:
 - pip install .
 
 script:
-- pip install runtests
+- pip install -U --no-deps runtests
 - python runtests.py
 - bash check_tag.sh fastpm/version.py
 
