@@ -1,10 +1,10 @@
 from fastpm.engine import FastPMEngine, ParticleMesh, CodeSegment
 from fastpm.perturbation import PerturbationTheory
 
-from nbodykit.base.particles import ParticleSource, column
+from nbodykit.base.catalog import CatalogSource, column
 import numpy
 
-class FastPMParticleSource(ParticleSource):
+class FastPMCatalogSource(CatalogSource):
     def __repr__(self):
         return "FastPMSimulation()" %self.attrs
 
@@ -38,7 +38,7 @@ class FastPMParticleSource(ParticleSource):
         H0 = 100.
         self.RSD = 1.0 / (H0 * aend * self.cosmo.efunc(1.0 / aend - 1))
 
-        ParticleSource.__init__(self, comm=linear.comm, use_cache=False)
+        CatalogSource.__init__(self, comm=linear.comm, use_cache=False)
 
         self.update_csize()
 
