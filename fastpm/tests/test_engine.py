@@ -50,6 +50,33 @@ def test_force():
     check_grad(code, 'force', 'whitenoise', init={'whitenoise': field}, eps=eps,
                 rtol=1e-2)
 
+def test_linear():
+    pm = ParticleMesh(BoxSize=8.0, Nmesh=(4, 4), dtype='f8')
+    engine = FastPMEngine(pm)
+    code = CodeSegment(engine)
+    def pk(k):
+        return 0.0 * k + 1.0
+    code.create_linear_field(whitenoise='whitenoise', powerspectrum=pk, dlinear_k='dlinear_k')
+    code.create_whitenoise(whitenoise='whitenoise2', powerspectrum=pk, dlinear_k='dlinear_k')
+
+    def tf1(k):
+        k2 = sum(ki**2 for ki in k)
+        r = (pk(k2 ** 0.5) / engine.pm.BoxSize.prod()) ** 0.5
+        r[k2 == 0] = 1.0
+        return r
+    def tf2(k):
+        k2 = sum(ki**2 for ki in k)
+        r = (pk(k2 ** 0.5) / engine.pm.BoxSize.prod()) ** -0.5
+        r[k2 == 0] = 1.0
+        return r
+
+    field = engine.pm.generate_whitenoise(seed=1234).c2r()
+    eps = field.cnorm() ** 0.5 * 1e-3
+
+    dlineark, whitenoise2 = code.compute(['dlinear_k', 'whitenoise2'], init={'whitenoise': field})
+    dlineark2 = field.r2c().apply(lambda k, v: tf1(k) * v)
+    assert_allclose(dlineark, dlineark2)
+    assert_allclose(field, whitenoise2)
 
 def test_solve_linear_displacement():
     engine = FastPMEngine(pm)

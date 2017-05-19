@@ -36,10 +36,34 @@ class FastPMEngine(ParticleMeshEngine):
         code.r2c(real=whitenoise, complex=dlinear_k)
         def tf(k):
             k2 = sum(ki**2 for ki in k)
-            r = (powerspectrum(k2 ** 0.5) * (1.0 / engine.pm.BoxSize).prod()) ** 0.5
-            r[k2 == 0] = 0.0
+            r = (powerspectrum(k2 ** 0.5) / engine.pm.BoxSize.prod()) ** 0.5
+            r[k2 == 0] = 1.0
             return r
         code.transfer(complex=dlinear_k, tf=tf)
+        return code
+
+    @programme(aout=['whitenoise'], ain=['dlinear_k'])
+    def create_whitenoise(engine, whitenoise, powerspectrum, dlinear_k):
+        """ Generate a whitenoise field
+
+            Parameters
+            ----------
+            whitenoise : RealField, out
+                the white noise field
+            powerspectrum : function, ex
+                P(k) in Mpc/h units.
+            dlinear_k : ComplexField, in
+                the over-density field in fourier space
+        """
+        code = CodeSegment(engine)
+        def tf(k):
+            k2 = sum(ki**2 for ki in k)
+            r = (powerspectrum(k2 ** 0.5) / engine.pm.BoxSize.prod()) ** -0.5
+            r[k2 == 0] = 1.0
+            return r
+        code.assign(x='dlinear_k', y='tmp')
+        code.transfer(complex='tmp', tf=tf)
+        code.c2r(real=whitenoise, complex='tmp')
         return code
 
     @programme(ain=['source_k'], aout=['s'])
