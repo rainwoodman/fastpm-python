@@ -2,7 +2,7 @@ from __future__ import print_function
 import numpy
 import logging
 
-from abopt.engines.pmesh import (
+from pmesh.abopt import (
         ParticleMeshEngine,
         ZERO, Literal,
         CodeSegment,
@@ -16,7 +16,7 @@ class FastPMEngine(ParticleMeshEngine):
         ParticleMeshEngine.__init__(self, pm)
         self.q[...] += shift * pm.BoxSize / pm.Nmesh
         # force pm is higher resolution than the particle pm.
-        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm)
+        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm, resampler=pm.resampler)
         self.fengine = ParticleMeshEngine(fpm, q=self.q)
 
     @programme(ain=['whitenoise'], aout=['dlinear_k'])
@@ -237,11 +237,6 @@ class FastPMEngine(ParticleMeshEngine):
     def force_compute(engine, force, density_k, s, layout, force_factor):
         code = CodeSegment(engine.fengine)
         code.defaults['force'] = numpy.zeros_like(engine.q)
-        def assert_pm(field, pm):
-            assert field.pm == pm
-
-        code.inspect(inspector=lambda engine, frontier:
-            assert_pm(frontier['density_k'], code.engine.pm))
 
         for d in range(engine.pm.ndim):
             def tf(k, d=d):

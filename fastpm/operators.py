@@ -45,7 +45,7 @@ def create_grid(basepm, shift=0, dtype='f4'):
         source[..., d] = real.value.flat
     return source
 
-def lpt1(dlin_k, q, method='cic'):
+def lpt1(dlin_k, q, resampler='cic'):
     """ Run first order LPT on linear density field, returns displacements of particles
         reading out at q. The result has the same dtype as q.
     """
@@ -66,11 +66,11 @@ def lpt1(dlin_k, q, method='cic'):
                     .apply(diff_kernel(d), out=Ellipsis) \
                     .apply(nyquist_kernel, out=Ellipsis) \
                     .c2r(out=Ellipsis)
-        local_disp = disp.readout(local_q, method=method)
+        local_disp = disp.readout(local_q, resampler=resampler)
         source[..., d] = layout.gather(local_disp)
     return source
 
-def lpt1_gradient(basepm, q, grad_disp, method='cic'):
+def lpt1_gradient(basepm, q, grad_disp, resampler='cic'):
     """ backtrace gradient of first order LPT on linear density field.
         returns gradient over modes of dlin_k. The positions are assumed to
         not to move, thus gradient over qition is not returned.
@@ -89,7 +89,7 @@ def lpt1_gradient(basepm, q, grad_disp, method='cic'):
     # for each dimension
     for d in range(ndim):
         local_grad_disp_d = layout.exchange(grad_disp[:, d])
-        grad_disp_d.readout_gradient(local_q, local_grad_disp_d, method=method, out_self=grad_disp_d, out_pos=False)
+        grad_disp_d.readout_gradient(local_q, local_grad_disp_d, resampler=resampler, out_self=grad_disp_d, out_pos=False)
         grad_delta_d_k = grad_disp_d.c2r_gradient(out=Ellipsis) \
                          .apply(laplace_kernel, out=Ellipsis) \
                          .apply(diff_kernel(d, conjugate=True), out=Ellipsis) \

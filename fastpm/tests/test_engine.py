@@ -8,7 +8,7 @@ import logging
 
 logger.setLevel(level=logging.WARNING)
 
-from abopt.engines.pmesh import ParticleMesh, RealField, ComplexField, check_grad
+from pmesh.abopt import ParticleMesh, RealField, ComplexField, check_grad
 
 from ..engine import FastPMEngine
 
@@ -69,7 +69,7 @@ def test_solve_linear_displacement():
     from fastpm.operators import lpt1, lpt2source
     dlin_k, s = code.compute(['dlinear_k', 's'], init={'whitenoise' : field})
 
-    s1_truth = lpt1(dlin_k, engine.q, method='cic')
+    s1_truth = lpt1(dlin_k, engine.q, resampler='cic')
     assert_allclose(s, s1_truth, rtol=1e-5)
 
 def test_solve_lpt():
@@ -88,9 +88,9 @@ def test_solve_lpt():
     s1, tape = code.compute('s1', init={'whitenoise' : field}, return_tape=True)
 
     from fastpm.operators import lpt1, lpt2source
-    s1_truth = lpt1(dlin_k, engine.q, method='cic')
+    s1_truth = lpt1(dlin_k, engine.q, resampler='cic')
     dlin2_k = lpt2source(dlin_k)
-    s2_truth = lpt1(dlin2_k, engine.q, method='cic')
+    s2_truth = lpt1(dlin2_k, engine.q, resampler='cic')
 
     assert_allclose(s1, s1_truth, rtol=1e-4)
     assert_allclose(s2, s2_truth, rtol=1e-4)
