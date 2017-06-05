@@ -6,10 +6,12 @@ ap.add_argument("config")
 from fastpm import Solver
 from fastpm import leapfrog
 from fastpm.core import autostages
+from fastpm.background import PerturbationGrowth
 
 from nbodykit.cosmology import Planck15
 from nbodykit.cosmology import EHPower
 from nbodykit.cosmology import Cosmology
+from nbodykit.lab import FFTPower, MemoryMesh
 import numpy
 
 class Config(dict):
@@ -53,7 +55,7 @@ class Config(dict):
     def finalize(self):
         self['aout'] = numpy.array(self['aout'])
 
-        self.pm = ParticleMesh(BoxSize=self['boxsize'], Nmesh= [self['nc']] * self['ndim'])
+        self.pm = ParticleMesh(BoxSize=self['boxsize'], Nmesh= [self['nc']] * self['ndim'], resampler='tsc')
         mask = numpy.array([ a not in self['stages'] for a in self['aout']], dtype='?')
         missing_stages = self['aout'][mask]
         if len(missing_stages):
@@ -75,20 +77,39 @@ def main():
 
     state = solver.lpt(dlin, Q=Q, a=config['stages'][0], order=2)
 
-    def monitor(action, ai, ac, af, state):
+    def write_power(d, path, a):
+        meshsource = MemoryMesh(d, Nmesh=config['nc'])
+        r = FFTPower(meshsource, mode='1d')
+        if config.pm.comm.rank == 0:
+            print('Writing matter power spectrum at %s' % path)
+            # only root rank saves
+            numpy.savetxt(path, 
+                numpy.array([
+                  r.power['k'], r.power['power'].real, r.power['modes'],
+                  r.power['power'].real / solver.cosmology.growth_function(1.0 / a - 1) ** 2,
+                ]).T,
+                comments='# k p N p/D**2')
+
+    write_power(dlin, config.makepath('power-linear.txt'), a=1.0)
+
+    def monitor(action, ai, ac, af, state, event):
         if config.pm.comm.rank == 0:
             print('Step %s %06.4f - (%06.4f) -> %06.4f' %( action, ai, ac, af),
                   'S %(S)06.4f P %(P)06.4f F %(F)06.4f' % (state.a))
 
-        a = state.a['S']
-        if not (a == state.a['F'] and a == state.a['P']):
-            return
+        if action == 'F':
+            a = state.a['F']
+            path = config.makepath('power-%06.4f.txt' % a) % a
+            write_power(event['delta_k'], path, a)
 
-        if a in config['aout']:
-            path = config.makepath('fpm-%06.4f' % a) % a
-            if config.pm.comm.rank == 0:
-                print('Writing a snapshot at %s' % path)
-            state.save(path, attrs=config)
+        if state.synchronized:
+            a = state.a['S']
+            if a in config['aout']:
+                path = config.makepath('fpm-%06.4f' % a) % a
+                if config.pm.comm.rank == 0:
+                    print('Writing a snapshot at %s' % path)
+                # collective save
+                state.save(path, attrs=config)
 
     solver.nbody(state, stepping=leapfrog(config['stages']), monitor=monitor)
 

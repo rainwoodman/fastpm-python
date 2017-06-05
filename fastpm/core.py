@@ -23,6 +23,11 @@ class StateVector(object):
         self.a = dict(S=None, P=None, F=None)
 
     @property
+    def synchronized(self):
+        a = self.a['S']
+        return a == self.a['P'] and a == self.a['F']
+
+    @property
     def X(self):
         return self.S + self.Q
 
@@ -97,31 +102,33 @@ class Solver(object):
         return state
 
     def nbody(self, state, stepping, monitor=None):
-        step = FastPMStep(self.cosmology, self.boosted_pm)
+        step = FastPMStep(self.cosmology, self.boosted_pm, monitor)
 
         for action, ai, ac, af in stepping:
 
             step.run(action, ai, ac, af, state)
 
-            if monitor is not None:
-                monitor(action, ai, ac, af, state)
-
         return state
 
 class FastPMStep(object):
-    def __init__(self, cosmology, pm):
+    def __init__(self, cosmology, pm, monitor):
         self.cosmology = cosmology
         self.pm = pm
+        self.monitor = monitor
 
     def run(self, action, ai, ac, af, state):
         actions = dict(K=self.Kick, D=self.Drift, F=self.Force)
-        return actions[action](state, ai, ac, af)
+
+        event = actions[action](state, ai, ac, af)
+        if self.monitor is not None:
+            self.monitor(action, ai, ac, af, state, event)
 
     def Kick(self, state, ai, ac, af):
         pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])
         fac = 1 / (ac ** 2 * pt.E(ac)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ac)
         state.P[...] = state.P[...] + fac * state.F[...]
         state.a['P'] = af
+
     def Drift(self, state, ai, ac, af):
         pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])
         fac = 1 / (ac ** 3 * pt.E(ac)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ac)
@@ -130,8 +137,11 @@ class FastPMStep(object):
 
     def Force(self, state, ai, ac, af):
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
-        state.F[...] = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar)
+        state.F[...], delta_k = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar, return_deltak = True)
+
+        delta_k[...] /= nbar
         state.a['F'] = af
+        return dict(delta_k=delta_k)
 
 def autostages(knots, N, astart=None, N0=None):
     """ Generate an optimized list of N stages that includes time steps at the knots.
