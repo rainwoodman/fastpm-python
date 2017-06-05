@@ -66,8 +66,8 @@ class Config(dict):
         import os.path
         return os.path.join(self.prefix, filename)
 
-def main():
-    ns = ap.parse_args()
+def main(args=None):
+    ns = ap.parse_args(args)
     config = Config(ns.config)
 
     solver = Solver(config.pm, cosmology=config['cosmology'], B=config['pm_nc_factor'])
