@@ -1,5 +1,4 @@
-from fastpm.engine import FastPMEngine, ParticleMesh, CodeSegment
-from fastpm.perturbation import PerturbationTheory
+from fastpm import Solver, leapfrog
 
 from nbodykit.base.catalog import CatalogSource, column
 import numpy
@@ -28,33 +27,30 @@ class FastPMCatalogSource(CatalogSource):
         self.attrs['asteps'] = asteps
         self.attrs['boost'] = boost
 
-        pt = PerturbationTheory(cosmo)
+        solver = Solver(self.linear.pm, cosmology=self.cosmo, B=boost)
+        Q = self.linear.pm.generate_uniform_particle_grid(shift=0.5)
 
-        engine = FastPMEngine(self.linear.pm, B=boost, shift=0.5)
-        self.model = CodeSegment(engine)
-        self.model.solve_fastpm(pt=pt, asteps=asteps, dlinear_k='dlinear_k', s='s', v='v')
         self.linear = linear
+
+        dlin = self.linear.to_field(mode='complex')
+        state = solver.lpt(dlin, Q, a=astart, order=2)
+        state = solver.nbody(state, leapfrog(astart, aend, Nsteps))
 
         H0 = 100.
         self.RSD = 1.0 / (H0 * aend * self.cosmo.efunc(1.0 / aend - 1))
 
+        self._size = len(Q)
         CatalogSource.__init__(self, comm=linear.comm, use_cache=False)
 
         self.update_csize()
 
-        # this is slow
-        self._run()
+        self['Displacement'] = state.S
+        self['InitialPosition'] = state.Q
+        self['ConjugateMomentum'] = state.P # a**2 H0 v_pec
 
     @property
     def size(self):
-        return len(self.model.engine.q)
-
-    def _run(self):
-        s, p = self.model.compute(['s', 'v'], init={'dlinear_k': self.linear.to_field(mode='complex')})
-        q = self.model.engine.q
-        self['Displacement'] = s
-        self['InitialPosition'] = q
-        self['ConjugateMomentum'] = p # a**2 H0 v_pec
+        return self._size
 
     @column
     def Position(self):
