@@ -133,13 +133,13 @@ class FastPMStep(object):
         state.F[...] = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar)
         state.a['F'] = af
 
-def autostages(astart, N, knots, N0=None):
+def autostages(knots, N, astart=None, N0=None):
     """ Generate an optimized list of N stages that includes time steps at the knots.
 
         Parameters
         ----------
-        astart : float
-            starting time
+        astart : float, or None
+            starting time, default is knots[0]
         N : int
             total number of stages
         N0 : int or None
@@ -153,20 +153,16 @@ def autostages(astart, N, knots, N0=None):
 
     """
 
-    assert astart <= min(knots) # otherwise some knots are before the starting time
-
     knots = numpy.array(knots)
     knots.sort()
-    if len(knots) == 1:
-        assert N0 is None
-        N0 = N
 
     stages = numpy.array([], dtype='f8')
-    if astart != knots[0]:
+    if astart is not None and astart != knots.min():
+        assert astart < knots.min()
         if N0 is None: N0 = 1
         knots = numpy.append([astart], knots)
     else:
-        N0 = 0
+        N0 = 1
 
     for i in range(0, len(knots) - 1):
         da = (knots[-1] - knots[i]) / (N - len(stages) - 1)

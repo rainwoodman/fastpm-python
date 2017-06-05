@@ -13,7 +13,7 @@ def test_autostages():
         [0.1, 0.2, 1.0],
         ]:
 
-        l = autostages(astart=0.1, N=12, knots=knots)
+        l = autostages(knots, astart=0.1, N=12)
 
         assert(len(l) == 12)
         for k in knots:
