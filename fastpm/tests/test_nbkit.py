@@ -22,6 +22,6 @@ def test_nbkit(comm):
 
     linear = LinearMesh(power, 256., 64, seed=400, comm=comm)
     sim = FastPMCatalogSource(linear, boost=2, Nsteps=5, cosmo=cosmo)
-    fof = FOF(sim, 0.2, 12)
+    fof = FOF(sim, 0.2, 8)
     features = fof.find_features()
-    assert_allclose(features.csize, 574, rtol=0.01)
+    assert_allclose(features.csize, 710, rtol=0.01)

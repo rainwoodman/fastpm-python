@@ -198,7 +198,7 @@ def lpt2source_gradient(dlin_k, grad_source):
 
     return grad_dlin_k
 
-def gravity(x, pm, factor, f=None):
+def gravity(x, pm, factor, f=None, return_deltak=False):
     field = pm.create(mode="real")
     layout = pm.decompose(x)
     field.paint(x, layout=layout, hold=False)
@@ -214,7 +214,10 @@ def gravity(x, pm, factor, f=None):
                   .c2r(out=Ellipsis)
         force_d.readout(x, layout=layout, out=f[..., d])
     f[...] *= factor
-    return f
+    if return_deltak:
+        return f, deltak
+    else:
+        return f
 
 def gravity_gradient(x, pm, factor, grad_f, out_x=None):
     if out_x is None:
