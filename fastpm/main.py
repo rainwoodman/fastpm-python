@@ -79,7 +79,7 @@ def main(args=None):
     state = solver.lpt(dlin, Q=Q, a=config['stages'][0], order=2)
 
     def write_power(d, path, a):
-        meshsource = MemoryMesh(d, Nmesh=config['nc'])
+        meshsource = MemoryMesh(d, Nmesh=config['nc'] * B)
         r = FFTPower(meshsource, mode='1d')
         if config.pm.comm.rank == 0:
             print('Writing matter power spectrum at %s' % path)
