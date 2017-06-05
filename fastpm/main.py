@@ -100,7 +100,7 @@ def main(args=None):
 
         if action == 'F':
             a = state.a['F']
-            path = config.makepath('power-%06.4f.txt' % a) % a
+            path = config.makepath('power-%06.4f.txt' % a)
             write_power(event['delta_k'], path, a)
 
         if state.synchronized:
