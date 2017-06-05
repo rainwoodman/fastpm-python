@@ -25,6 +25,7 @@ class Config(dict):
         self['ndim'] = 3
         self['seed'] = 1985
         self['pm_nc_factor'] = 2
+        self['resampler'] = 'tsc'
         self['cosmology'] = Planck15
         self['powerspectrum'] = EHPower(Planck15, 0)
         self['unitary'] = False
@@ -55,7 +56,7 @@ class Config(dict):
     def finalize(self):
         self['aout'] = numpy.array(self['aout'])
 
-        self.pm = ParticleMesh(BoxSize=self['boxsize'], Nmesh= [self['nc']] * self['ndim'], resampler='tsc')
+        self.pm = ParticleMesh(BoxSize=self['boxsize'], Nmesh= [self['nc']] * self['ndim'], resampler=self['recampler'])
         mask = numpy.array([ a not in self['stages'] for a in self['aout']], dtype='?')
         missing_stages = self['aout'][mask]
         if len(missing_stages):
