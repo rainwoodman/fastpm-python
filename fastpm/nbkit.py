@@ -1,4 +1,4 @@
-from fastpm import Solver, leapfrog
+from fastpm.core import Solver, leapfrog
 
 from nbodykit.base.catalog import CatalogSource, column
 import numpy

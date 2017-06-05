@@ -3,10 +3,10 @@ from pmesh.pm import ParticleMesh
 ap = ArgumentParser()
 ap.add_argument("config")
 
-from fastpm import Solver
-from fastpm import leapfrog
-from fastpm.core import autostages
-from fastpm.background import PerturbationGrowth
+from .core import Solver
+from .core import leapfrog
+from .core import autostages
+from .background import PerturbationGrowth
 
 from nbodykit.cosmology import Planck15
 from nbodykit.cosmology import EHPower
@@ -56,7 +56,7 @@ class Config(dict):
     def finalize(self):
         self['aout'] = numpy.array(self['aout'])
 
-        self.pm = ParticleMesh(BoxSize=self['boxsize'], Nmesh= [self['nc']] * self['ndim'], resampler=self['recampler'])
+        self.pm = ParticleMesh(BoxSize=self['boxsize'], Nmesh= [self['nc']] * self['ndim'], resampler=self['resampler'])
         mask = numpy.array([ a not in self['stages'] for a in self['aout']], dtype='?')
         missing_stages = self['aout'][mask]
         if len(missing_stages):
