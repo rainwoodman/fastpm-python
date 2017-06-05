@@ -21,13 +21,13 @@ before_install:
 - conda install --yes -c bccp bigfile mpi4py_test pfft-python nbodykit runtests
 - pip install -U --no-deps nbodykit
 - pip install -U --no-deps pmesh
-- pip install -U --no-deps abopt
 
 install:
 - pip install .
 
 script:
 - python runtests.py
+- python -m fastpm.main examples/run
 - bash check_tag.sh fastpm/version.py
 
 deploy:
