@@ -34,7 +34,7 @@ class FastPMCatalogSource(CatalogSource):
 
         dlin = self.linear.to_field(mode='complex')
         state = solver.lpt(dlin, Q, a=astart, order=2)
-        state = solver.nbody(state, leapfrog(astart, aend, Nsteps))
+        state = solver.nbody(state, leapfrog(numpy.linspace(astart, aend, Nsteps + 1, endpoint=True)))
 
         H0 = 100.
         self.RSD = 1.0 / (H0 * aend * self.cosmo.efunc(1.0 / aend - 1))
