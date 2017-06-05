@@ -1,0 +1,15 @@
+#! /bin/bash
+
+#SBATCH -J test
+#SBATCH -N 1
+#SBATCH -p debug
+##SBATCH --qos premium
+#SBATCH -t 5:00
+
+
+source /usr/common/contrib/bccp/conda-activate.sh 3.5
+
+bcast-pip -U --no-deps /global/u1/y/yfeng1/source/nbodykit/
+bcast-pip -U --no-deps /global/u1/y/yfeng1/source/fastpm-python/
+
+srun -n 16 python -m fastpm.main run
