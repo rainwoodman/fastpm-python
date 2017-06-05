@@ -19,7 +19,7 @@ before_install:
 - source activate test
 - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py scipy astropy
 - conda install --yes -c bccp bigfile mpi4py_test pfft-python nbodykit runtests
-- pip install -U --no-deps nbodykit
+- pip install -U --no-deps https://github.com/bccp/nbodykit/archive/master.zip
 - pip install -U --no-deps pmesh
 
 install:
