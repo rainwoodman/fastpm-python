@@ -42,25 +42,35 @@ or from the git clone :
 Command line interface
 ----------------------
 
-There is a simple command line interface
+There is a simple command line interface, which expects a config.py in the
+first command line argument.
 
 .. code::
 
     python -m fastpm.main examples/run
 
+or with MPI
+
+.. code::
+
+    mpirun -n 4 python -m fastpm.main examples/run
+
+The arguments are listed in `fastpm/main.py`
 
 Development
 -----------
 
-To run the tests
+To run the tests with MPI
 
 .. code::
 
     python runtests.py
 
+Run with a single rank and enable debugging
+
 .. code::
 
-    python runtests.py --single
+    python runtests.py --single --pdb --capture=no
 
 To run a single test (e.g. `test_fastpm.py:test_name`) :
 
