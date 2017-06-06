@@ -79,4 +79,12 @@ To run a single test (e.g. `test_fastpm.py:test_name`) :
     python runtests.py fastpm/tests/test_fastpm:test_name
 
 
+Profiling
+---------
 
+.. code::
+
+    python -m cProfile -o profile.stats run.py run
+    gprof2dot profile.stats -f pstats | dot -Tpng > profile.png
+
+We can't use `-m fastpm.main` directory because there is no nested `-m` support.
