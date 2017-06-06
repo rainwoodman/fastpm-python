@@ -9,6 +9,10 @@ CI status / master
     :alt: Build Status
     :target: https://travis-ci.org/rainwoodman/fastpm-python
 
+.. image:: https://github.com/rainwoodman/fastpm-python/raw/artwork/artwork/10MpchTrajectories.png
+    :align: center
+
+
 Install
 -------
 
