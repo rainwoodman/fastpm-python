@@ -74,10 +74,9 @@ class Solver(object):
     def whitenoise(self, seed, unitary=False):
         return self.pm.generate_whitenoise(seed, mode='complex', unitary=unitary)
 
-    def linear(self, whitenoise, Pk, a=1.0):
-        pt = PerturbationGrowth(self.cosmology, a=[a])
+    def linear(self, whitenoise, Pk):
         return whitenoise.apply(lambda k, v:
-                        pt.D1(a) * Pk(sum(ki ** 2 for ki in k)**0.5) ** 0.5 * v / v.BoxSize.prod() ** 0.5)
+                        Pk(sum(ki ** 2 for ki in k)**0.5) ** 0.5 * v / v.BoxSize.prod() ** 0.5)
 
     def lpt(self, linear, Q, a, order=2):
         assert order in (1, 2)

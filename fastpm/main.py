@@ -72,7 +72,7 @@ def main(args=None):
 
     solver = Solver(config.pm, cosmology=config['cosmology'], B=config['pm_nc_factor'])
     whitenoise = solver.whitenoise(seed=config['seed'], unitary=config['unitary'])
-    dlin = solver.linear(whitenoise, Pk=lambda k : config['powerspectrum'](k), a=1.0)
+    dlin = solver.linear(whitenoise, Pk=lambda k : config['powerspectrum'](k))
 
     Q = config.pm.generate_uniform_particle_grid(shift=config['shift'])
 

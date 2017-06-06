@@ -32,7 +32,7 @@ def test_solver():
     Q = pm.generate_uniform_particle_grid()
 
     wn = solver.whitenoise(1234)
-    dlin = solver.linear(wn, lambda k: Plin(k), a=1.0)
+    dlin = solver.linear(wn, lambda k: Plin(k))
 
     state = solver.lpt(dlin, Q, a=1.0, order=2)
 
