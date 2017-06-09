@@ -45,13 +45,12 @@ class StateVector(object):
 
         with FileMPI(self.pm.comm, filename, create=True) as ff:
             with ff.create('Header') as bb:
-                for key in ['Om0', 'Tcmb0', 'Neff', 'm_nu', 'Ob0', 'Ode0']:
-                    att = getattr(self.cosmology, key, None)
-                    if att == None:
-                        bb.attrs[key] = 0
-                    else:
-                        bb.attrs[key] = getattr(self.cosmology, key)
-#                    bb.attrs[key] = getattr(self.cosmology, key, None)#put in ,None to by pass m_nu = 0 case.
+                if hasattr(self.cosmology, 'm_nu'):
+                    keylist = ['Om0', 'Tcmb0', 'Neff', 'm_nu', 'Ob0', 'Ode0']
+                else:
+                    keylist = ['Om0', 'Tcmb0', 'Neff', 'Ob0', 'Ode0']
+                for key in keylist:
+                    bb.attrs[key] = getattr(self.cosmology, key)
                 bb.attrs['Time'] = a
                 bb.attrs['h'] = self.cosmology.H0 / H0 # relative h
                 bb.attrs['RSDFactor'] = 1.0 / (H0 * a * self.cosmology.efunc(1.0 / a - 1))
