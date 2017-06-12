@@ -46,8 +46,8 @@ class StateVector(object):
         with FileMPI(self.pm.comm, filename, create=True) as ff:
             with ff.create('Header') as bb:
                 keylist = ['Om0', 'Tcmb0', 'Neff', 'Ob0', 'Ode0']
-                if hasattr(self.cosmology, 'm_nu'):
-                    keylist.append('m_nu')
+                if getattr(self.cosmology, 'm_nu', None) is not None:
+                    keylist.insert(3,'m_nu')
                 for key in keylist:
                     bb.attrs[key] = getattr(self.cosmology, key)
                 bb.attrs['Time'] = a
