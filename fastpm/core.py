@@ -7,6 +7,7 @@ from nbodykit.cosmology import Cosmology
 
 class StateVector(object):
     def __init__(self, solver, Q, S=None, P=None, F=None):
+        self.solver = solver
         self.pm = solver.pm
         self.Q = Q
         self.csize = solver.pm.comm.allreduce(len(self.Q))
@@ -21,6 +22,9 @@ class StateVector(object):
         self.P = P
         self.F = F
         self.a = dict(S=None, P=None, F=None)
+
+    def copy(self):
+        return StateVector(self.solver, self.Q, self.S.copy(), self.P.copy(), self.F.copy())
 
     @property
     def synchronized(self):
