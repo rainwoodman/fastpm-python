@@ -1,6 +1,6 @@
 # This script tests if full reversability like
 # JANUS is achieved by FastPM, without
-# using double precision.
+# using int64 fixed point.
 #
 # JANUS: https://arxiv.org/pdf/1704.07715v1.pdf
 #
