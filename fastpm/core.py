@@ -6,7 +6,7 @@ from .operators import lpt1, lpt2source, gravity
 from nbodykit.cosmology import Cosmology
 
 class StateVector(object):
-    def __init__(self, solver, Q, S=None, P=None, F=None):
+    def __init__(self, solver, Q, S=None, P=None, F=None, RHO=None):
         self.solver = solver
         self.pm = solver.pm
         self.Q = Q
@@ -17,14 +17,16 @@ class StateVector(object):
         if S is None: S = numpy.zeros_like(self.Q)
         if P is None: P = numpy.zeros_like(self.Q)
         if F is None: F = numpy.zeros_like(self.Q)
+        if RHO is None: RHO = numpy.zeros_like(self.Q[..., 0])
 
         self.S = S
         self.P = P
         self.F = F
+        self.RHO = RHO
         self.a = dict(S=None, P=None, F=None)
 
     def copy(self):
-        return StateVector(self.solver, self.Q, self.S.copy(), self.P.copy(), self.F.copy())
+        return StateVector(self.solver, self.Q, self.S.copy(), self.P.copy(), self.F.copy(), self.RHO.copy())
 
     @property
     def synchronized(self):
@@ -44,7 +46,8 @@ class StateVector(object):
 
     def save(self, filename, attrs={}):
         from bigfile import FileMPI
-        H0 = 100. # in Mpc/h units
+        H0 = 100. # in km/s / Mpc/h units
+        DH = 2997.92458; # in Mpc/h
         a = self.a['S']
 
         with FileMPI(self.pm.comm, filename, create=True) as ff:
@@ -66,6 +69,8 @@ class StateVector(object):
             ff.create_from_array('1/Position', self.X)
             # Peculiar velocity in km/s
             ff.create_from_array('1/Velocity', self.P * (H0 / a))
+            # dimensionless potential (check this)
+            ff.create_from_array('1/Potential', self.RHO / (DH * DH * a))
 
 class Solver(object):
     def __init__(self, pm, cosmology, B=1):
@@ -143,10 +148,11 @@ class FastPMStep(object):
 
     def Force(self, state, ai, ac, af):
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
-        state.F[...], delta_k = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar, return_deltak = True)
+        state.F[...], delta_k, rho = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar, return_deltak = True)
 
         delta_k[...] /= nbar
         state.a['F'] = af
+        state.RHO[...] = rho
         return dict(delta_k=delta_k)
 
 def autostages(knots, N, astart=None, N0=None):

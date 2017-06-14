@@ -46,7 +46,7 @@ class FastPMCatalogSource(CatalogSource):
 
         self['Displacement'] = state.S
         self['InitialPosition'] = state.Q
-        self['ConjugateMomentum'] = state.P # a**2 H0 v_pec
+        self['ConjugateMomentum'] = state.P # a ** 2  / H0 dx / dt
 
     @property
     def size(self):

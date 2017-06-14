@@ -214,8 +214,11 @@ def gravity(x, pm, factor, f=None, return_deltak=False):
                   .c2r(out=Ellipsis)
         force_d.readout(x, layout=layout, out=f[..., d])
     f[...] *= factor
+
     if return_deltak:
-        return f, deltak
+        rho = deltak.c2r(out=Ellipsis)
+        rho = rho.readout(x, layout=layout)
+        return f, deltak, rho
     else:
         return f
 
