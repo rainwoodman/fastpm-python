@@ -37,6 +37,12 @@ class StateVector(object):
     def X(self):
         return self.S + self.Q
 
+    @property
+    def V(self):
+        H0 = 100. # in km/s / Mpc/h units
+        a = self.a['P']
+        return self.P * (H0 / a)
+
     def to_mesh(self):
         real = self.pm.create(mode='real')
         x = self.X
@@ -47,7 +53,6 @@ class StateVector(object):
     def save(self, filename, attrs={}):
         from bigfile import FileMPI
         H0 = 100. # in km/s / Mpc/h units
-        DH = 2997.92458; # in Mpc/h
         a = self.a['S']
 
         with FileMPI(self.pm.comm, filename, create=True) as ff:
@@ -68,9 +73,9 @@ class StateVector(object):
                         pass
             ff.create_from_array('1/Position', self.X)
             # Peculiar velocity in km/s
-            ff.create_from_array('1/Velocity', self.P * (H0 / a))
+            ff.create_from_array('1/Velocity', self.V)
             # dimensionless potential (check this)
-            ff.create_from_array('1/Potential', self.RHO / (DH * DH * a))
+            ff.create_from_array('1/Density', self.RHO)
 
 class Solver(object):
     def __init__(self, pm, cosmology, B=1):
