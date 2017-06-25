@@ -6,7 +6,7 @@ from .operators import lpt1, lpt2source, gravity
 from nbodykit.cosmology import Cosmology
 
 class StateVector(object):
-    def __init__(self, solver, Q, S=None, P=None, F=None, RHO=None):
+    def __init__(self, solver, Q):
         self.solver = solver
         self.pm = solver.pm
         self.Q = Q
@@ -14,19 +14,21 @@ class StateVector(object):
         self.dtype = self.Q.dtype
         self.cosmology = solver.cosmology
 
-        if S is None: S = numpy.zeros_like(self.Q)
-        if P is None: P = numpy.zeros_like(self.Q)
-        if F is None: F = numpy.zeros_like(self.Q)
-        if RHO is None: RHO = numpy.zeros_like(self.Q[..., 0])
-
-        self.S = S
-        self.P = P
-        self.F = F
-        self.RHO = RHO
+        self.S = numpy.zeros_like(self.Q)
+        self.P = numpy.zeros_like(self.Q)
+        self.F = numpy.zeros_like(self.Q)
+        self.RHO = numpy.zeros_like(self.Q[..., 0])
         self.a = dict(S=None, P=None, F=None)
 
     def copy(self):
-        return StateVector(self.solver, self.Q, self.S.copy(), self.P.copy(), self.F.copy(), self.RHO.copy())
+        obj = object.__new__(type(self))
+        od = obj.__dict__
+        od.update(self.__dict__)
+        obj.S = self.S.copy()
+        obj.P = self.P.copy()
+        obj.F = self.F.copy()
+        obj.RHO = self.RHO.copy()
+        return obj
 
     @property
     def synchronized(self):
