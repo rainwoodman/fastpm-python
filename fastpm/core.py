@@ -13,6 +13,10 @@ class StateVector(object):
         self.dtype = self.Q.dtype
         self.cosmology = solver.cosmology
 
+        self.H0 = 100. # in km/s / Mpc/h units
+        # G * (mass of a particle)
+        self.GM0 = self.H0 ** 2 / ( 4 * numpy.pi ) * 1.5 * self.cosmology.Om0 * self.pm.BoxSize.prod() / self.csize
+
         self.S = numpy.zeros_like(self.Q)
         self.P = numpy.zeros_like(self.Q)
         self.F = numpy.zeros_like(self.Q)
@@ -40,9 +44,8 @@ class StateVector(object):
 
     @property
     def V(self):
-        H0 = 100. # in km/s / Mpc/h units
         a = self.a['P']
-        return self.P * (H0 / a)
+        return self.P * (self.H0 / a)
 
     def to_mesh(self):
         real = self.pm.create(mode='real')
@@ -53,7 +56,6 @@ class StateVector(object):
 
     def save(self, filename, attrs={}):
         from bigfile import FileMPI
-        H0 = 100. # in km/s / Mpc/h units
         a = self.a['S']
 
         with FileMPI(self.pm.comm, filename, create=True) as ff:
@@ -64,8 +66,8 @@ class StateVector(object):
                 for key in keylist:
                     bb.attrs[key] = getattr(self.cosmology, key)
                 bb.attrs['Time'] = a
-                bb.attrs['h'] = self.cosmology.H0 / H0 # relative h
-                bb.attrs['RSDFactor'] = 1.0 / (H0 * a * self.cosmology.efunc(1.0 / a - 1))
+                bb.attrs['h'] = self.cosmology.H0 / self.H0 # relative h
+                bb.attrs['RSDFactor'] = 1.0 / (self.H0 * a * self.cosmology.efunc(1.0 / a - 1))
                 for key in attrs:
                     try:
                         #best effort
@@ -167,15 +169,14 @@ class FastPMStep(object):
 
         rho = self.pm.create(mode="real")
         rho.paint(X1, hold=False)
-        return layout, X1, rho, nbar
+        rho /= nbar # 1 + delta
+        return layout, X1, rho
 
     def Force(self, state, ai, ac, af):
         from .force.gravity import longrange
 
         # use the default PM support
-        layout, X1, rho, nbar = self.prepare_force(state, smoothing=None)
-
-        rho /= nbar # 1 + delta
+        layout, X1, rho = self.prepare_force(state, smoothing=None)
 
         state.RHO[...] = layout.gather(rho.readout(X1))
 

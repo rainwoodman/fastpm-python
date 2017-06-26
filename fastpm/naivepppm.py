@@ -1,6 +1,5 @@
 from . import core
 from kdcount import KDTree
-from numpy import pi as PI
 
 class Solver(core.Solver):
     def __init__(self, pm, cosmology, B=1, r_split=None):
@@ -29,9 +28,7 @@ class PPPMStep(core.FastPMStep):
 
         support = max([self.r_cut, self.pm.resampler.support * 0.5])
 
-        layout, X1, rho, nbar = self.prepare_force(state, smoothing=support)
-
-        rho /= nbar # 1 + delta
+        layout, X1, rho = self.prepare_force(state, smoothing=support)
 
         state.RHO[...] = layout.gather(rho.readout(X1))
 
@@ -42,10 +39,9 @@ class PPPMStep(core.FastPMStep):
                 )
 
         tree = KDTree(X1, boxsize=self.pm.BoxSize)
-        GM0 = 1.0 / ( 4 * PI ) * 1.5 * self.cosmology.Om0 / nbar
 
         Fs = layout.gather(
-            shortrange(tree, tree, self.r_split, self.r_cut, self.r_smth, factor=GM0),
+            shortrange(tree, tree, self.r_split, self.r_cut, self.r_smth, factor=state.GM0 / state.H0 ** 2),
             mode='local'
             )
         state.F[...] += Fs
