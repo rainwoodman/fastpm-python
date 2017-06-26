@@ -80,14 +80,18 @@ class StateVector(object):
 
 class Solver(object):
     def __init__(self, pm, cosmology, B=1):
-        self.pm = pm
         if not isinstance(cosmology, Cosmology):
             raise TypeError("only nbodykit.cosmology object is supported")
 
+        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm, resampler=pm.resampler)
+        self.pm = pm
+        self.fpm = fpm
         self.cosmology = cosmology
 
-        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm, resampler=pm.resampler)
-        self.boosted_pm = fpm
+    # override nbodystep in subclasses
+    @property
+    def nbodystep(self):
+        return FastPMStep(self)
 
     def whitenoise(self, seed, unitary=False):
         return self.pm.generate_whitenoise(seed, mode='complex', unitary=unitary)
@@ -121,26 +125,24 @@ class Solver(object):
         return state
 
     def nbody(self, state, stepping, monitor=None):
-        step = FastPMStep(self.cosmology, self.boosted_pm, monitor)
-
+        step = self.nbodystep
         for action, ai, ac, af in stepping:
-
-            step.run(action, ai, ac, af, state)
+            step.run(action, ai, ac, af, state, monitor)
 
         return state
 
-class FastPMStep(object):
-    def __init__(self, cosmology, pm, monitor):
-        self.cosmology = cosmology
-        self.pm = pm
-        self.monitor = monitor
 
-    def run(self, action, ai, ac, af, state):
+class FastPMStep(object):
+    def __init__(self, solver):
+        self.cosmology = solver.cosmology
+        self.pm = solver.fpm
+
+    def run(self, action, ai, ac, af, state, monitor):
         actions = dict(K=self.Kick, D=self.Drift, F=self.Force)
 
         event = actions[action](state, ai, ac, af)
-        if self.monitor is not None:
-            self.monitor(action, ai, ac, af, state, event)
+        if monitor is not None:
+            monitor(action, ai, ac, af, state, event)
 
     def Kick(self, state, ai, ac, af):
         pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])

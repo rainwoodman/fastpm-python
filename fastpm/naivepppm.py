@@ -3,21 +3,24 @@ from kdcount import KDTree
 from numpy import pi as PI
 
 class Solver(core.Solver):
+    def __init__(self, pm, cosmology, B=1, r_split=None):
+        core.Solver.__init__(self, pm, cosmology, B)
 
-    def nbody(self, state, stepping, monitor=None):
-        r_split = self.boosted_pm.BoxSize[0] / self.boosted_pm.Nmesh[0]
-        step = Step(self.cosmology, self.boosted_pm, r_split, monitor)
-
-        for action, ai, ac, af in stepping:
-            step.run(action, ai, ac, af, state)
-        return state
-
-class Step(core.FastPMStep):
-    def __init__(self, cosmology, pm, r_split, monitor):
-        core.FastPMStep.__init__(self, cosmology, pm, monitor)
+        if r_split is None:
+            r_split = self.fpm.BoxSize[0] / self.fpm.Nmesh[0]
         self.r_split = r_split
-        self.r_cut = r_split * 4.5
-        self.r_smth = 2.0 * r_split #/ 32.
+
+    @property
+    def nbodystep(self):
+        return PPPMStep(self)
+
+class PPPMStep(core.FastPMStep):
+    def __init__(self, solver):
+        core.FastPMStep.__init__(self, solver)
+
+        self.r_split = solver.r_split
+        self.r_cut = solver.r_split * 4.5
+        self.r_smth = solver.r_split
 
     def Force(self, state, ai, ac, af):
         from .force.gravity import longrange
@@ -47,3 +50,4 @@ class Step(core.FastPMStep):
             )
         state.F[...] += Fs
         state.a['F'] = af
+
