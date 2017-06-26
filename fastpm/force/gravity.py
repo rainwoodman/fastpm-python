@@ -46,15 +46,15 @@ def shortrange(tree1, tree2, r_split, r_cut, r_smth, factor):
 
         R = X[i] - Y[j]
 
+        s = shortrange_kernel(r)
+        r3inv = 1 / r ** 3 * s
         imin = i.min()
         for d in range(nd):
             b = tree1.boxsize[d]
             Rd = R[:, d]
             Rd[Rd > 0.5 * b] -= b
             Rd[Rd < -0.5 * b] += b
-            F1 = - 1 / r ** 3 * Rd
-            s = shortrange_kernel(r)
-            F1 *= s
+            F1 = - r3inv * Rd
             F1 = numpy.bincount(i - imin, weights=F1)
             F[imin:len(F1)+ imin, d] += F1
 
