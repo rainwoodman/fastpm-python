@@ -2,7 +2,6 @@ import numpy
 
 from pmesh.pm import ParticleMesh
 from .background import PerturbationGrowth
-from .operators import lpt1, lpt2source, gravity
 from nbodykit.cosmology import Cosmology
 
 class StateVector(object):
@@ -100,6 +99,8 @@ class Solver(object):
     def lpt(self, linear, Q, a, order=2):
         assert order in (1, 2)
 
+        from .force.lpt import lpt1, lpt2source
+
         state = StateVector(self, Q)
         pt = PerturbationGrowth(self.cosmology, a=[a])
         DX1 = pt.D1(a) * lpt1(linear, Q)
@@ -154,6 +155,8 @@ class FastPMStep(object):
         state.a['S'] = af
 
     def Force(self, state, ai, ac, af):
+        from .force.pmgravity import gravity
+
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
         state.F[...], delta_k, rho = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar, return_deltak = True)
 

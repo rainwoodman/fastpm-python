@@ -10,7 +10,7 @@ import numpy
 pm = ParticleMesh(BoxSize=128, Nmesh=[128, 128, 128])
 Q = pm.generate_uniform_particle_grid()
 
-stages = numpy.linspace(0.1, 1.0, 20, endpoint=True)
+stages = numpy.linspace(0.1, 1.0, 10, endpoint=True)
 
 solver = Solver(pm, Planck15, B=2)
 wn = solver.whitenoise(400)
@@ -28,9 +28,9 @@ state = solver.nbody(state, leapfrog(stages), monitor=monitor)
 cat = ArrayCatalog({'Position' : X[-1][1]}, BoxSize=pm.BoxSize, Nmesh=pm.Nmesh)
 
 fof = FOF(cat, linking_length=0.2, nmin=12)
-for label in [1, 100, 1000, 5000]:
+for label in [1, 100, 1000, 1001, 1002, 1003, 5000]:
     select = fof.labels == label
 
     for i, (a, x, p) in enumerate(X):
         cat = ArrayCatalog({'Position' : x[select], 'Momentum' : p[select]}, BoxSize=pm.BoxSize, Time=a)
-        cat.save('TraceSim/20-halo-%d-%06.4f' % (label, a), ('Position', 'Momentum'))
+        cat.save('TraceSim/10-halo-%d-%06.4f' % (label, a), ('Position', 'Momentum'))
