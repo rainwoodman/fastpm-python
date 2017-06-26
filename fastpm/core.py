@@ -2,7 +2,6 @@ import numpy
 
 from pmesh.pm import ParticleMesh
 from .background import PerturbationGrowth
-from .operators import lpt1, lpt2source, gravity
 from nbodykit.cosmology import Cosmology
 
 class StateVector(object):
@@ -81,14 +80,18 @@ class StateVector(object):
 
 class Solver(object):
     def __init__(self, pm, cosmology, B=1):
-        self.pm = pm
         if not isinstance(cosmology, Cosmology):
             raise TypeError("only nbodykit.cosmology object is supported")
 
+        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm, resampler=pm.resampler)
+        self.pm = pm
+        self.fpm = fpm
         self.cosmology = cosmology
 
-        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm, resampler=pm.resampler)
-        self.boosted_pm = fpm
+    # override nbodystep in subclasses
+    @property
+    def nbodystep(self):
+        return FastPMStep(self)
 
     def whitenoise(self, seed, unitary=False):
         return self.pm.generate_whitenoise(seed, mode='complex', unitary=unitary)
@@ -99,6 +102,8 @@ class Solver(object):
 
     def lpt(self, linear, Q, a, order=2):
         assert order in (1, 2)
+
+        from .force.lpt import lpt1, lpt2source
 
         state = StateVector(self, Q)
         pt = PerturbationGrowth(self.cosmology, a=[a])
@@ -120,26 +125,24 @@ class Solver(object):
         return state
 
     def nbody(self, state, stepping, monitor=None):
-        step = FastPMStep(self.cosmology, self.boosted_pm, monitor)
-
+        step = self.nbodystep
         for action, ai, ac, af in stepping:
-
-            step.run(action, ai, ac, af, state)
+            step.run(action, ai, ac, af, state, monitor)
 
         return state
 
-class FastPMStep(object):
-    def __init__(self, cosmology, pm, monitor):
-        self.cosmology = cosmology
-        self.pm = pm
-        self.monitor = monitor
 
-    def run(self, action, ai, ac, af, state):
+class FastPMStep(object):
+    def __init__(self, solver):
+        self.cosmology = solver.cosmology
+        self.pm = solver.fpm
+
+    def run(self, action, ai, ac, af, state, monitor):
         actions = dict(K=self.Kick, D=self.Drift, F=self.Force)
 
         event = actions[action](state, ai, ac, af)
-        if self.monitor is not None:
-            self.monitor(action, ai, ac, af, state, event)
+        if monitor is not None:
+            monitor(action, ai, ac, af, state, event)
 
     def Kick(self, state, ai, ac, af):
         pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])
@@ -153,13 +156,34 @@ class FastPMStep(object):
         state.S[...] = state.S[...] + fac * state.P[...]
         state.a['S'] = af
 
-    def Force(self, state, ai, ac, af):
+    def prepare_force(self, state, smoothing):
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
-        state.F[...], delta_k, rho = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar, return_deltak = True)
 
-        delta_k[...] /= nbar
+        X = state.X
+
+        layout = self.pm.decompose(X, smoothing)
+
+        X1 = layout.exchange(X)
+
+        rho = self.pm.create(mode="real")
+        rho.paint(X1, hold=False)
+        return layout, X1, rho, nbar
+
+    def Force(self, state, ai, ac, af):
+        from .force.gravity import longrange
+
+        # use the default PM support
+        layout, X1, rho, nbar = self.prepare_force(state, smoothing=None)
+
+        rho /= nbar # 1 + delta
+
+        state.RHO[...] = layout.gather(rho.readout(X1))
+
+        delta_k = rho.r2c(out=Ellipsis)
+
+        state.F[...] = layout.gather(longrange(X1, delta_k, split=0, factor=1.5 * self.cosmology.Om0))
+
         state.a['F'] = af
-        state.RHO[...] = rho
         return dict(delta_k=delta_k)
 
 def autostages(knots, N, astart=None, N0=None):
