@@ -155,14 +155,26 @@ class FastPMStep(object):
         state.a['S'] = af
 
     def Force(self, state, ai, ac, af):
-        from .force.pmgravity import gravity
+        from .force.gravity import longrange
 
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
-        state.F[...], delta_k, rho = gravity(state.X, self.pm, factor=1.5 * self.cosmology.Om0 / nbar, return_deltak = True)
+        X = state.X
 
-        delta_k[...] /= nbar
+        layout = self.pm.decompose(X)
+
+        X1 = layout.exchange(X)
+
+        rho = self.pm.create(mode="real")
+        rho.paint(X1, hold=False)
+        rho /= nbar # 1 + delta
+
+        state.RHO[...] = layout.gather(rho.readout(X1))
+
+        delta_k = rho.r2c(out=Ellipsis)
+
+        state.F[...] = layout.gather(longrange(X1, delta_k, split=0, factor=1.5 * self.cosmology.Om0))
+
         state.a['F'] = af
-        state.RHO[...] = rho
         return dict(delta_k=delta_k)
 
 def autostages(knots, N, astart=None, N0=None):

@@ -14,3 +14,13 @@ def gradient(dir):
         factor = 1j
         return v * (1j * k[dir]) * mask
     return kernel
+
+def longrange(r_split):
+    if r_split != 0:
+        def kernel(k, v):
+            kk = sum(ki ** 2 for ki in k)
+            return v * numpy.exp(-kk * r_split**2)
+    else:
+        def kernel(k, v):
+            return v
+    return kernel
