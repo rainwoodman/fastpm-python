@@ -154,18 +154,25 @@ class FastPMStep(object):
         state.S[...] = state.S[...] + fac * state.P[...]
         state.a['S'] = af
 
-    def Force(self, state, ai, ac, af):
-        from .force.gravity import longrange
-
+    def prepare_force(self, state, smoothing):
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
+
         X = state.X
 
-        layout = self.pm.decompose(X)
+        layout = self.pm.decompose(X, smoothing)
 
         X1 = layout.exchange(X)
 
         rho = self.pm.create(mode="real")
         rho.paint(X1, hold=False)
+        return layout, X1, rho, nbar
+
+    def Force(self, state, ai, ac, af):
+        from .force.gravity import longrange
+
+        # use the default PM support
+        layout, X1, rho, nbar = self.prepare_force(state, smoothing=None)
+
         rho /= nbar # 1 + delta
 
         state.RHO[...] = layout.gather(rho.readout(X1))

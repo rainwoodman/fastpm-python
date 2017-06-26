@@ -1,4 +1,5 @@
 import numpy
+from scipy.special import erfc
 from . import kernels as FKN
 
 def longrange(x, delta_k, split, factor):
@@ -18,10 +19,12 @@ def longrange(x, delta_k, split, factor):
 
     return f
 
-def shortrange(tree1, tree2, r_split, r_cut, factor):
-    """ factor shall be G * M0 in order to match long range. 
+def shortrange(tree1, tree2, r_split, r_cut, r_smth, factor):
+    """ factor shall be G * M0 / H0** 2in order to match long range. 
 
-        GM0 = H0 ** 2 / (4 * pi) * (V / N)  (3 * Omega_M / 2)
+        GM0 = 1.0 / (4 * pi) * (V / N)  (3 * Omega_M / 2)
+
+        computes force for all particles in tree1 due to tree2.
     """
     X = tree1.input
     Y = tree2.input
@@ -31,16 +34,29 @@ def shortrange(tree1, tree2, r_split, r_cut, factor):
 
     def shortrange_kernel(r):
         u = r / (r_split * 2)
-        return numpy.erfc(u) + 2 * u / numpy.pi ** 0.5 * numpy.exp(-u**2)
+        return erfc(u) + 2 * u / numpy.pi ** 0.5 * numpy.exp(-u**2)
 
     def force_kernel(r, i, j):
+        mask = r > r_smth
+        r = r[mask]
+        i = i[mask]
+        j = j[mask]
+
+        if len(r) == 0: return
+
         R = X[i] - Y[j]
+
         imin = i.min()
         for d in range(nd):
-            F1 = - 1 / r ** 3 * R[d]
-            F1 *= shortrange_kernel(r)
-            F1 = bincount(i - imin, weights=F1)
+            b = tree1.boxsize[d]
+            Rd = R[:, d]
+            Rd[Rd > 0.5 * b] -= b
+            Rd[Rd < -0.5 * b] += b
+            F1 = - 1 / r ** 3 * Rd
+            s = shortrange_kernel(r)
+            F1 *= s
+            F1 = numpy.bincount(i - imin, weights=F1)
             F[imin:len(F1)+ imin, d] += F1
 
-    tree_x.root.enum(tree_y.root, r_cut, process=force_kernel)
+    tree1.root.enum(tree2.root, r_cut, process=force_kernel)
     return F * factor
