@@ -40,24 +40,22 @@ def shortrange(tree1, tree2, r_split, r_cut, r_smth, factor):
         r, i, j = cut(r, i, j, r_smth)
         if len(r) == 0: return
 
-        R = X[i] - Y[j]
-
+        # the sign here is correct. Attacting i towards j.
+        R = wrap(X[i] - Y[j], tree1.boxsize)
         s = shortrange_kernel(r)
         r3inv = 1 / r ** 3 * s
-        for d in range(nd):
-            b = tree1.boxsize[d]
-            Rd = wrap(R[:, d], b)
-            F1 = - r3inv * Rd
-            numpy.add.at(F[..., d], i, F1)
+        F1 = - r3inv * R
+        numpy.add.at(F, i, F1)
 
     tree1.root.enum(tree2.root, r_cut, process=force_kernel)
     return F * factor
 
-def wrap(r, b):
-    Rd = r.copy()
-    Rd[Rd > 0.5 * b] -= b
-    Rd[Rd < -0.5 * b] += b
-    return Rd
+def wrap(R, boxsize):
+    for d, b in enumerate(boxsize):
+        Rd = R[..., d]
+        Rd[Rd > 0.5 * b] -= b
+        Rd[Rd < -0.5 * b] += b
+    return R
 
 def cut(r, i, j, rmin):
     mask = r > rmin
@@ -66,20 +64,57 @@ def cut(r, i, j, rmin):
     j = j[mask]
     return r, i, j
 
-def timestep(tree, a, E, r_cut, r_smth, factor, eta=0.03):
-    """ factor is GM0 / H0 ** 2 """
+def timestep(tree, P, a, pt, r_cut, r_smth, factor, eta=0.03, sym=True):
+    """ factor is the same as the short-range force factor, GM0 / H**2.
+
+        This computes the time step for any particles, assuming free-falling.
+
+        The way the formula is derived is from
+
+        \Delta r = p 1 / (a a a E) da
+        \Delta p = f 1 / (a a E) da
+        f = (2 GM0 / H0**2) / r**2,
+
+        2 is reduced mass of the pair wise system.
+
+        free-fall assumes p = \Delta p, thus
+    """
 
     X = tree.input
     h = numpy.zeros_like(X[..., 0])
     h[...] = numpy.inf
 
-    fac = a ** 2 * E * factor ** 0.5 * (a / 2) ** 0.5 * eta
+    E = pt.E(a)
+
+    g = a ** 2.5 * E * (2 * factor) ** -0.5 * eta
+
+    dg_da = 2.5 * g / a + g / E * pt.E(a, order=1) / a
 
     def gettimestep(r, i, j):
         r, i, j = cut(r, i, j, r_smth)
         if len(r) == 0: return
-        tau = fac * r ** 1.5
+
+        tau = g * r ** 1.5
+
+        if sym:
+            R = wrap(X[j] - X[i], tree.boxsize)
+
+            dR_da = (P[j] - P[i]) / (a ** 3 * E)
+
+            RdotdR_da = numpy.einsum('ij, ij->i', R, dR_da)
+
+            dtau_da = dg_da * r ** 1.5 \
+                    + g * 1.5 * r ** -0.5 * RdotdR_da
+
+            # symmetrize the step, according to http://arxiv.org/abs/1205.5668v1
+
+            assert (dtau_da < 2).all() # need to add the limiter if this happens.
+            
+            tau = tau / (1 - 0.5 * dtau_da)
+
         numpy.fmin.at(h, i, tau)
 
     tree.root.enum(tree.root, r_cut, gettimestep)
+
     return h
+
