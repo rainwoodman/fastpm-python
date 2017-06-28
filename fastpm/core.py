@@ -138,6 +138,7 @@ class FastPMStep(object):
     def __init__(self, solver):
         self.cosmology = solver.cosmology
         self.pm = solver.fpm
+        self.solver = solver
 
     def run(self, action, ai, ac, af, state, monitor):
         actions = dict(K=self.Kick, D=self.Drift, F=self.Force)

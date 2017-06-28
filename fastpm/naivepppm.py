@@ -8,25 +8,31 @@ class Solver(core.Solver):
         if r_split is None:
             r_split = self.fpm.BoxSize[0] / self.fpm.Nmesh[0]
         self.r_split = r_split
+        self.r_cut = r_split * 4.5
+        self.r_smth = r_split
 
     @property
     def nbodystep(self):
         return PPPMStep(self)
 
+    def compute_shortrange(self, tree1, tree2, factor):
+        from .force.gravity import shortrange
+        return shortrange(tree1, tree2,
+            self.r_split, self.r_cut, self.r_smth,
+            factor=factor)
+
+    def compute_longrange(self, X1, delta_k, factor):
+        from .force.gravity import longrange
+        return longrange(X1, delta_k, split=self.r_split, factor=factor)
+
 class PPPMStep(core.FastPMStep):
     def __init__(self, solver):
         core.FastPMStep.__init__(self, solver)
 
-        self.r_split = solver.r_split
-        self.r_cut = solver.r_split * 4.5
-        self.r_smth = solver.r_split
-
     def Force(self, state, ai, ac, af):
-        from .force.gravity import longrange
-        from .force.gravity import shortrange
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
 
-        support = max([self.r_cut, self.pm.resampler.support * 0.5])
+        support = max([self.solver.r_cut, self.pm.resampler.support * 0.5])
 
         layout, X1, rho = self.prepare_force(state, smoothing=support)
 
@@ -35,13 +41,13 @@ class PPPMStep(core.FastPMStep):
         delta_k = rho.r2c(out=Ellipsis)
 
         state.F[...] = layout.gather(
-                longrange(X1, delta_k, split=0, factor=1.5 * self.cosmology.Om0)
+                self.solver.compute_longrange(X1, delta_k, factor=1.5 * self.cosmology.Om0)
                 )
 
         tree = KDTree(X1, boxsize=self.pm.BoxSize)
 
         Fs = layout.gather(
-            shortrange(tree, tree, self.r_split, self.r_cut, self.r_smth, factor=state.GM0 / state.H0 ** 2),
+            self.solver.compute_shortrange(tree, tree, factor=state.GM0 / state.H0**2),
             mode='local'
             )
         state.F[...] += Fs

@@ -44,7 +44,7 @@ def shortrange(tree1, tree2, r_split, r_cut, r_smth, factor):
         R = wrap(X[i] - Y[j], tree1.boxsize)
         s = shortrange_kernel(r)
         r3inv = 1 / r ** 3 * s
-        F1 = - r3inv * R
+        F1 = - r3inv[:, None] * R
         numpy.add.at(F, i, F1)
 
     tree1.root.enum(tree2.root, r_cut, process=force_kernel)
@@ -64,7 +64,7 @@ def cut(r, i, j, rmin):
     j = j[mask]
     return r, i, j
 
-def timestep(tree, P, a, pt, r_cut, r_smth, factor, eta=0.03, sym=True):
+def compute_stepsize(tree, P, a, pt, r_cut, r_smth, factor, eta=0.03, sym=True):
     """ factor is the same as the short-range force factor, GM0 / H**2.
 
         This computes the time step for any particles, assuming free-falling.
