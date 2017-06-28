@@ -1,0 +1,21 @@
+from fastpm.core import leapfrog, autostages
+from fastpm.hold import Solver
+
+from pmesh.pm import ParticleMesh
+from nbodykit.cosmology import Planck15, EHPower
+import numpy
+pm = ParticleMesh(BoxSize=32., Nmesh=[64, 64, 64])
+
+def test_solver():
+    Plin = EHPower(Planck15, redshift=0)
+    solver = Solver(pm, Planck15, B=2)
+    Q = pm.generate_uniform_particle_grid()
+
+    wn = solver.whitenoise(1234)
+    dlin = solver.linear(wn, lambda k: Plin(k))
+
+    state = solver.lpt(dlin, Q, a=0.1, order=2)
+
+    dnonlin = solver.nbody(state, leapfrog([0.3, 0.35]))
+
+    dnonlin.save('nonlin')
