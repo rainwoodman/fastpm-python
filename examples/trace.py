@@ -17,6 +17,19 @@ wn = solver.whitenoise(400)
 dlin = solver.linear(wn, EHPower(Planck15, 0))
 state = solver.lpt(dlin, Q, stages[0])
 
+
+X = numpy.fromfile('pos')
+V = numpy.fromfile('vel')
+
+Q = X - V* aafqwe
+
+start = pm.comm.rank * len(X) // pm.comm.size
+end = (pm.comm.rank + 1)* len(X) // pm.comm.size
+
+state = StateVector(Q[start:end])
+state.S[...] = X[start:end] - Q[start:end]
+state.P[...] = a ** h * V[start:end]
+
 X = []
 
 def monitor(action, ai, ac, af, state, event):
