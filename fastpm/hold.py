@@ -5,7 +5,7 @@ from kdcount import KDTree
 from .background import PerturbationGrowth
 
 class Solver(core.Solver):
-    def __init__(self, pm, cosmology, B=1, r_split=None):
+    def __init__(self, pm, cosmology, B=1, r_split=None, NTimeBin=4):
         core.Solver.__init__(self, pm, cosmology, B)
 
         if r_split is None:
@@ -14,6 +14,7 @@ class Solver(core.Solver):
         self.r_split = r_split
         self.r_cut = r_split * 4.5
         self.r_smth = r_split / 32
+        self.NTimeBin = NTimeBin
 
     @property
     def nbodystep(self):
@@ -99,7 +100,7 @@ class Timeline(object):
 
     def get_tree(self, state, bin):
         if self.Trees[bin] is None:
-            print("Tree bin ==", bin)
+            #print("Tree bin ==", bin)
             self.Trees[bin] = KDTree(state.X, ind=self.select(bin), boxsize=state.pm.BoxSize)
         return self.Trees[bin]
 
@@ -132,8 +133,8 @@ class Timeline(object):
         if self.NumPart[bin2] == 0: return
 
         if bin1 == bin2:
-            print('Mom  bin >=', bin1, self.TimeStamp)
-
+            #print('Mom  bin >=', bin1, self.TimeStamp)
+            pass
         fac = 1 / (ac ** 2 * pt.E(ac)) * (af - ai)
 
         tree1 = self.get_tree(state, bin1)
@@ -160,7 +161,7 @@ class Timeline(object):
         # timeline updated, do we really need to compute anything?
         if self.NumPart[bin] == 0: return
 
-        print('Pos  bin ==', bin, self.TimeStamp)
+        #print('Pos  bin ==', bin, self.TimeStamp)
 
         fac = 1 / (ac ** 3 * pt.E(ac)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ac)
 
@@ -179,6 +180,7 @@ class Timeline(object):
 
             for bin in range(level):
                 if self.isedge(bin):
+                    # when CurTime is 0 this triggers the first timebin rebuild
                     self.build_timebins(state, bin)
                     break
 
@@ -186,7 +188,7 @@ class Timeline(object):
             self.sync_empty(level)
 
             self.CurTime = self.CurTime + (self.BaseTime >> level)
-            print(self.TimeStamp)
+            #print(self.TimeStamp)
 
     def build_timebins(self, state, binmin):
         pt = self.pt
@@ -201,7 +203,8 @@ class Timeline(object):
                 state.P, a, pt.E(a), pt.E(a, order=1),
                 factor=state.GM0 / state.H0 ** 2, out=state.stepsize)
             if len(tree.ind) > 0:
-                print("update", bin, tree)
+                #print("update", bin, tree)
+                pass
 
         bins = numpy.log2((self.af - self.ai) / state.stepsize).astype('int')
         bins.clip(0, self.NTimeBin -1, out=bins)
@@ -210,7 +213,7 @@ class Timeline(object):
         self.NumPart = numpy.bincount(bins, minlength=self.NTimeBin)
         self.offset = numpy.concatenate([[0], self.NumPart.cumsum()])
 
-        print('Time', a, 'bin ==', binmin, 'stepsize updated', state.stepsize.max(), state.stepsize.min(), self.NumPart)
+        #print('Time', a, 'bin ==', binmin, 'stepsize updated', state.stepsize.max(), state.stepsize.min(), self.NumPart)
 
         for i in range(binmin, len(self.Trees)):
             self.invalidate_tree(i)
@@ -221,8 +224,8 @@ class HOLDState:
         layout = state.pm.decompose(X, smoothing=support)
         self.X = layout.exchange(X)
         self.P = layout.exchange(state.P)
-        self.F = numpy.empty_like(state.P)
-        self.stepsize = numpy.empty(len(state.P))
+        self.F = numpy.empty_like(self.P)
+        self.stepsize = numpy.empty(len(self.P))
         self.GM0 = state.GM0
         self.H0 = state.H0
         self.layout = layout
@@ -243,10 +246,12 @@ class PPPMStep(core.FastPMStep):
         support = max([self.solver.r_cut, self.pm.resampler.support * 0.5])
         hstate = HOLDState(state, support)
 
-        timeline = Timeline(self.solver, 4, ai, af, len(hstate.stepsize))
+        timeline = Timeline(self.solver, self.solver.NTimeBin, ai, af, len(hstate.stepsize))
 
         timeline.run(hstate)
 
         hstate.gather(state)
-
+        
+        state.a['S'] = af
+        return dict(hstate=hstate)
 
