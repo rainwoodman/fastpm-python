@@ -81,7 +81,13 @@ class StateVector(object):
             ff.create_from_array('1/Density', self.RHO)
 
 class Solver(object):
-    def __init__(self, pm, cosmology, B=1):
+    def __init__(self, pm, cosmology, B=1, a_linear=1.0):
+        """
+            a_linear : float
+                scaling factor at the time of the linear field.
+                The growth function will be calibrated such that at a_linear D1 == 0.
+
+        """
         if not isinstance(cosmology, Cosmology):
             raise TypeError("only nbodykit.cosmology object is supported")
 
@@ -89,6 +95,7 @@ class Solver(object):
         self.pm = pm
         self.fpm = fpm
         self.cosmology = cosmology
+        self.a_linear = a_linear
 
     # override nbodystep in subclasses
     @property
@@ -108,7 +115,7 @@ class Solver(object):
         from .force.lpt import lpt1, lpt2source
 
         state = StateVector(self, Q)
-        pt = PerturbationGrowth(self.cosmology, a=[a])
+        pt = PerturbationGrowth(self.cosmology, a=[a], a_normalize=self.a_linear)
         DX1 = pt.D1(a) * lpt1(linear, Q)
 
         V1 = a ** 2 * pt.f1(a) * pt.E(a) * DX1
@@ -148,13 +155,13 @@ class FastPMStep(object):
             monitor(action, ai, ac, af, state, event)
 
     def Kick(self, state, ai, ac, af):
-        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])
+        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
         fac = 1 / (ac ** 2 * pt.E(ac)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ac)
         state.P[...] = state.P[...] + fac * state.F[...]
         state.a['P'] = af
 
     def Drift(self, state, ai, ac, af):
-        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])
+        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
         fac = 1 / (ac ** 3 * pt.E(ac)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ac)
         state.S[...] = state.S[...] + fac * state.P[...]
         state.a['S'] = af

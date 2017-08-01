@@ -11,7 +11,7 @@ class PerturbationGrowth(object):
         Formula are derived from Yin Li's notes on 2LPT.
 
     """
-    def __init__(self, cosmo, a=None):
+    def __init__(self, cosmo, a=None, a_normalize=1.0):
         """ Parameters
             ----------
             cosmo: object,
@@ -19,9 +19,13 @@ class PerturbationGrowth(object):
             a : array_like
                 a list of time steps where the factors are exact.
                 other a values are interpolated.
+            a_normalize : scalar
+                a to normalize the growth factors to 1.0
         """
 #        assert cosmo.Ogamma0 == 0
 #        assert cosmo.Onu0 == 0
+
+        self.a_normalize = a_normalize
 
         self.cosmo = cosmo
         self.efunc = cosmo.efunc
@@ -38,8 +42,8 @@ class PerturbationGrowth(object):
             lna = np.log(np.logspace(-7, 0, 1024*10, endpoint=True))
         else:
             a = np.array(a, copy=True).ravel() # ensure this is 1-d
-            if 1.0 not in a: # ensure redshift 0 is in the list, for normalization
-                a = np.concatenate([[1.0], a])
+            if a_normalize not in a: # ensure redshift 0 is in the list, for normalization
+                a = np.concatenate([[a_normalize], a])
             a.sort()
             if a[0] > 1e-7: # add a high redshift starting point.
                 a = np.concatenate([[1e-7], a])
@@ -149,7 +153,7 @@ class PerturbationGrowth(object):
         v1 = np.array(v1)
         v2 = np.array(v2)
 
-        ind = abs(self.lna).argmin()
+        ind = abs(self.lna - np.log(self.a_normalize)).argmin()
         # normalization to 1 at a=1.0
         v1 /= v1[ind][0]
         v2 /= v2[ind][0]
