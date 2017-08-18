@@ -71,6 +71,11 @@ class PerturbationGrowth(object):
         """
         return self.D1(a)
 
+    def Gp2(self, a):
+        """ Gp for second order LPT
+        """
+        return self.D2(a)
+
     def gp(self, a):
         """
             Notice the derivative of D1 is against ln a but gp is d D1 / da, so
@@ -78,11 +83,22 @@ class PerturbationGrowth(object):
         """
         return self.D1(a, order=1) / a
 
+    def gp2(self, a):
+        """ gp for second order LPT
+        """
+        return self.D2(a, order=1) / a
+
     def Gf(self, a):
         """ FastPM growth factor function, eq, 20
         """
 
         return self.D1(a, 1) * a ** 2 * self.E(a)
+
+    def Gf2(self, a):
+        """ Gf but for second order LPT
+        """
+
+        return self.D2(a, 1) * a ** 2 * self.E(a)
 
     def gf(self, a):
         """
@@ -92,6 +108,17 @@ class PerturbationGrowth(object):
         return 1 / a * (
             self.D1(a, 2) * a ** 2 * self.E(a) \
             +  self.D1(a, 1) * (
+                    a ** 2 * self.E(a, order=1)
+                +   2 * a ** 2 * self.E(a))
+            )
+
+    def gf2(self, a):
+        """
+            gf but for second order LPT
+        """
+        return 1 / a * (
+            self.D2(a, 2) * a ** 2 * self.E(a) \
+            +  self.D2(a, 1) * (
                     a ** 2 * self.E(a, order=1)
                 +   2 * a ** 2 * self.E(a))
             )

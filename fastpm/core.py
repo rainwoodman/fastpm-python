@@ -110,6 +110,7 @@ class Solver(object):
                         Pk(sum(ki ** 2 for ki in k)**0.5) ** 0.5 * v / v.BoxSize.prod() ** 0.5)
 
     def lpt(self, linear, Q, a, order=2):
+        """ This computes the 'force' from LPT as well. """
         assert order in (1, 2)
 
         from .force.lpt import lpt1, lpt2source
@@ -124,9 +125,11 @@ class Solver(object):
             V2 = a ** 2 * pt.f2(a) * pt.E(a) * DX2
             state.S[...] = DX1 + DX2
             state.P[...] = V1 + V2
+            state.F[...] = a ** 2 * pt.E(a) * (pt.gf(a) / pt.D1(a) * DX1 + pt.gf2(a) / pt.D2(a) * DX2)
         else:
             state.S[...] = DX1
             state.P[...] = V1
+            state.F[...] = a ** 2 * pt.E(a) * (pt.gf(a) / pt.D1(a) * DX1)
 
         state.a['S'] = a
         state.a['P'] = a
@@ -258,6 +261,35 @@ def leapfrog(stages):
     ai = stages[0]
     # first force calculation for jump starting
     yield 'F', ai, ai, ai
+    x, p, f = ai, ai, ai
+
+    for i in range(len(stages) - 1):
+        a0 = stages[i]
+        a1 = stages[i + 1]
+        ah = (a0 * a1) ** 0.5
+        yield 'K', p, f, ah
+        p = ah
+        yield 'D', x, p, a1
+        x = a1
+        yield 'F', f, x, a1
+        f = a1
+        yield 'K', p, f, a1
+        p = a1
+
+def leapfrog_with_lpt(stages):
+    """ Generate a leap frog stepping scheme.
+
+        Parameters
+        ----------
+        stages : array_like
+            Time (a) where force computing stage is requested.
+    """
+    if len(stages) == 0:
+        return
+
+    ai = stages[0]
+
+    # first force calculation for jump starting
     x, p, f = ai, ai, ai
 
     for i in range(len(stages) - 1):
