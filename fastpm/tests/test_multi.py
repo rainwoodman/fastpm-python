@@ -43,3 +43,11 @@ def test_solver(comm):
     dlin = c2.linear(wn, Pk)
     ic2 = c2.lpt(dlin, Q, 0.1, order=1)
     print(ic2.S[0], ic2.P[0])
+    final2 = c2.nbody(ic2, leapfrog([0.1, 1.0]))
+
+    final = solver.nbody(ic, leapfrog([0.1, 1.0]))
+    print('0', final.species['0'].F[0])
+    print('1', final.species['1'].F[0])
+    print('4', final.species['4'].F[0])
+    print(final.species['1'].F[0], solver.cosmology.Om(z=9) * solver.cosmology.efunc(9) ** 2, solver.cosmology.Om(z=0))
+    print(final2.F[0], c2.cosmology.Om(z=9), c2.cosmology.Om(z=0))
