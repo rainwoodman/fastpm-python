@@ -158,12 +158,14 @@ class FastPMStep(object):
             monitor(action, ai, ac, af, state, event)
 
     def Kick(self, state, ai, ac, af):
+        assert ac == state.a['F']
         pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
         fac = 1 / (ac ** 2 * pt.E(ac)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ac)
         state.P[...] = state.P[...] + fac * state.F[...]
         state.a['P'] = af
 
     def Drift(self, state, ai, ac, af):
+        assert ac == state.a['P']
         pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
         fac = 1 / (ac ** 3 * pt.E(ac)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ac)
         state.S[...] = state.S[...] + fac * state.P[...]
