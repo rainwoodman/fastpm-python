@@ -186,6 +186,8 @@ class FastPMStep(object):
     def Force(self, state, ai, ac, af):
         from .force.gravity import longrange
 
+        assert ac == state.a['S']
+
         # use the default PM support
         layout, X1, rho = self.prepare_force(state, smoothing=None)
 
