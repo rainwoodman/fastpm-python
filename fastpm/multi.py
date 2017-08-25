@@ -107,44 +107,59 @@ class FastPMStep(object):
             monitor(action, ai, ac, af, state, event)
 
     def Kick(self, state, ai, ac, af):
-        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
+        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])
         fac = 1 / (ac ** 2 * pt.E(ac)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ac)
-        state.P[...] = state.P[...] + fac * state.F[...]
+        for spname, sp in state.species.items():
+            sp.P[...] = sp.P[...] + fac * sp.F[...]
+            sp.a['P'] = af
         state.a['P'] = af
 
     def Drift(self, state, ai, ac, af):
-        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
+        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af])
         fac = 1 / (ac ** 3 * pt.E(ac)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ac)
-        state.S[...] = state.S[...] + fac * state.P[...]
+        for spname, sp in state.species.items():
+            sp.S[...] = sp.S[...] + fac * sp.P[...]
+            sp.a['S'] = af
         state.a['S'] = af
 
     def prepare_force(self, state, smoothing):
-        nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
-
-        X = state.X
-
-        layout = self.pm.decompose(X, smoothing)
-
-        X1 = layout.exchange(X)
-
         rho = self.pm.create(mode="real")
-        rho.paint(X1, hold=False)
-        rho /= nbar # 1 + delta
+        rho[...] = 0
+
+        layout = []
+        X1 = []
+        for spname, sp in state.species.items():
+            X = sp.X
+            layout_sp = self.pm.decompose(X, smoothing)
+            X1_sp = layout_sp.exchange(X)
+            nbar = sp.csize / self.pm.Nmesh.prod()
+            rho[...] += self.pm.paint(X1_sp) * (sp.Omega(sp.a['S']) / nbar)
+            layout.append(layout_sp)
+            X1.append(X1_sp)
         return layout, X1, rho
 
     def Force(self, state, ai, ac, af):
-        from .force.gravity import longrange
+        from .force.gravity import longrange_batch
 
         # use the default PM support
         layout, X1, rho = self.prepare_force(state, smoothing=None)
 
-        state.RHO[...] = layout.gather(rho.readout(X1))
-
         delta_k = rho.r2c(out=Ellipsis)
+        zc = 1. / ac - 1
 
-        state.F[...] = layout.gather(longrange(X1, delta_k, split=0, factor=1.5 * self.cosmology.Om0))
+        F1 = longrange_batch(X1,
+            # combined with Omega in force_prepare, this is 1.5 * Omega_m(0)
+            # if the particle is not 'decaying'.
+            delta_k, split=0,
+            factor=1.5 * self.cosmology.efunc(zc)** 2 * ac ** 3
+            )
+
+        for (spname, sp), layout_sp, F1_sp in zip(state.species.items(), layout, F1):
+            sp.F[...] = layout_sp.gather(F1_sp)
+            sp.a['F'] = af
 
         state.a['F'] = af
+
         return dict(delta_k=delta_k)
 
 def get_species_transfer_function_from_class(cosmology, z):

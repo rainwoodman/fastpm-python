@@ -88,13 +88,15 @@ class CDM(Species):
 
 class NCDM(Species):
     def Omega(self, a):
-        return self.cosmology.Oncdm(z=1. / a - 1)
+        # FIXME: using Omega_ncdm after switching to new nbodykit cosmology.
+        return self.cosmology.Onu(z=1. / a - 1)
 
+from collections import OrderedDict
 class StateVector(object):
     def __init__(self, cosmology, species, comm):
         """ A state vector is a dict of Species """
         self.cosmology = cosmology
-        self.species = species
+        self.species = OrderedDict(sorted(species.items(), key=lambda t: t[0]))
         self.comm = comm
         self.a = dict(S=None, P=None, F=None)
 
