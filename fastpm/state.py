@@ -65,6 +65,14 @@ class Species(object):
         real.paint(x, layout=layout, hold=False)
         return real
 
+    def to_catalog(self, **kwargs):
+        from nbodykit.source import ArrayCatalog
+        source = ArrayCatalog({'Position' : self.X, 'Velocity' : self.V},
+            BoxSize=self.BoxSize, Omega=self.Omega(self.a['S']), Omega0=self.Omega(1.0),
+            Time=self.a['S'], comm=self.comm, **kwargs
+        )
+        return source
+
     def save(self, filename, dataset):
         from bigfile import FileMPI
         with FileMPI(self.comm, filename, create=True) as ff:
@@ -100,11 +108,32 @@ class StateVector(object):
         self.comm = comm
         self.a = dict(S=None, P=None, F=None)
 
+    def __getitem__(self, spname):
+        return self.species[spname]
+
+    def __iter__(self):
+        return iter(self.species)
+
+    def __contains__(self, name):
+        return name in self.species
+
     def copy(self):
         vc = {}
         for k, v in self.species:
             vc[k] = v.copy()
         return StateVector(self.solver, vc)
+
+    def to_catalog(self, **kwargs):
+        from nbodykit.source import MultipleSpeciesCatalog
+        names = []
+        sources = []
+
+        for spname, sp in self.species.items():
+            sources.append(sp.to_catalog())
+            names.append(spname)
+
+        cat = MultipleSpeciesCatalog(names, *sources, **kwargs)
+        return cat
 
     def save(self, filename, attrs={}):
         from bigfile import FileMPI

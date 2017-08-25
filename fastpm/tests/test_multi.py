@@ -34,15 +34,15 @@ def test_solver(comm):
                 '4': (NCDM, tf['d_ncdm[0]'], tf['dd_ncdm[0]']),
             }, Q, a=0.1)
 
-    print('0', ic.species['0'].S[0], ic.species['0'].P[0])
-    print('1', ic.species['1'].S[0], ic.species['1'].P[0])
-    print('4', ic.species['4'].S[0], ic.species['4'].P[0])
+    print('0', ic.species['0'].S[0], ic.species['0'].P[0], ic.species['0'].Q[0])
+    print('1', ic.species['1'].S[0], ic.species['1'].P[0], ic.species['1'].Q[0])
+    print('4', ic.species['4'].S[0], ic.species['4'].P[0], ic.species['4'].Q[0])
 
     c2 = CoreSolver(pm, Planck15, B=1)
     Pk = lambda k: cPlanck15.get_pk(k, z=0)
     dlin = c2.linear(wn, Pk)
     ic2 = c2.lpt(dlin, Q, 0.1, order=1)
-    print(ic2.S[0], ic2.P[0])
+    print(ic2.S[0], ic2.P[0], ic2.Q[0])
     final2 = c2.nbody(ic2, leapfrog([0.1, 1.0]))
 
     final = solver.nbody(ic, leapfrog([0.1, 1.0]))
@@ -50,3 +50,5 @@ def test_solver(comm):
     print('1', final.species['1'].F[0])
     print('4', final.species['4'].F[0])
     print(final2.F[0])
+
+    final.to_catalog()
