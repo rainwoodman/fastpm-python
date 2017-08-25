@@ -57,7 +57,7 @@ class Solver(object):
         get_k = lambda k : sum(ki ** 2 for ki in k) ** 0.5
 
         species = {}
-        for spname, (sptype, d, dd) in species_spec.items():
+        for spname, (sptype, d, dd) in sorted(species_spec.items(), key=lambda t:t[0]):
             sp = sptype(self.cosmology, self.pm.BoxSize, Q, self.pm.comm)
 
             def apply_density(k, v):

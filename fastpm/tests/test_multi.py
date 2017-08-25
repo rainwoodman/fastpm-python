@@ -49,5 +49,4 @@ def test_solver(comm):
     print('0', final.species['0'].F[0])
     print('1', final.species['1'].F[0])
     print('4', final.species['4'].F[0])
-    print(final.species['1'].F[0], solver.cosmology.Om(z=9) * solver.cosmology.efunc(9) ** 2, solver.cosmology.Om(z=0))
-    print(final2.F[0], c2.cosmology.Om(z=9), c2.cosmology.Om(z=0))
+    print(final2.F[0])
