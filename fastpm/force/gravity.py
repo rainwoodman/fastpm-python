@@ -19,6 +19,25 @@ def longrange(x, delta_k, split, factor):
 
     return f
 
+def longrange_batch(x, delta_k, split, factor):
+    """ like long range, but x is a list of positions """
+
+    f = [numpy.empty_like(xi) for xi in x]
+
+    pot_k = delta_k.apply(FKN.laplace) \
+                  .apply(FKN.longrange(split), out=Ellipsis)
+
+    for d in range(delta_k.ndim):
+        force_d = pot_k.apply(FKN.gradient(d)) \
+                  .c2r(out=Ellipsis)
+        for xi, fi in zip(x, f):
+            force_d.readout(xi, out=fi[..., d])
+
+    for fi in f:
+        fi[...] *= factor
+
+    return f
+
 def shortrange(tree1, tree2, r_split, r_cut, r_smth, factor, out=None):
     """ factor shall be G * M0 / H0** 2 in order to match long range. 
 
