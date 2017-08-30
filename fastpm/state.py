@@ -67,8 +67,11 @@ class Species(object):
 
     def to_catalog(self, **kwargs):
         from nbodykit.source import ArrayCatalog
-        source = ArrayCatalog({'Position' : self.X, 'Velocity' : self.V},
-            BoxSize=self.BoxSize, Omega=self.Omega(self.a['S']), Omega0=self.Omega(1.0),
+        from nbodykit.transform import ConstantArray
+        Omega = self.Omega(self.a['S'])
+        source = ArrayCatalog({'Position' : self.X, 'Velocity' : self.V,
+            'Weight' : ConstantArray(Omega, len(self.X))},
+            BoxSize=self.BoxSize, Omega=Omega, Omega0=self.Omega(1.0),
             Time=self.a['S'], comm=self.comm, **kwargs
         )
         return source
@@ -119,9 +122,9 @@ class StateVector(object):
 
     def copy(self):
         vc = {}
-        for k, v in self.species:
+        for k, v in self.species.items():
             vc[k] = v.copy()
-        return StateVector(self.solver, vc)
+        return StateVector(self.cosmology, vc, self.comm)
 
     def to_catalog(self, **kwargs):
         from nbodykit.source import MultipleSpeciesCatalog
@@ -132,6 +135,7 @@ class StateVector(object):
             sources.append(sp.to_catalog())
             names.append(spname)
 
+        print(kwargs)
         cat = MultipleSpeciesCatalog(names, *sources, **kwargs)
         return cat
 

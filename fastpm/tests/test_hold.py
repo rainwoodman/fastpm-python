@@ -4,7 +4,7 @@ from fastpm.hold import Solver
 from pmesh.pm import ParticleMesh
 from nbodykit.cosmology import Planck15, EHPower
 import numpy
-pm = ParticleMesh(BoxSize=32., Nmesh=[64, 64, 64])
+pm = ParticleMesh(BoxSize=32., Nmesh=[16, 16, 16])
 
 def test_solver():
     Plin = EHPower(Planck15, redshift=0)
@@ -14,7 +14,7 @@ def test_solver():
     wn = solver.whitenoise(1234)
     dlin = solver.linear(wn, lambda k: Plin(k))
 
-    state = solver.lpt(dlin, Q, a=0.1, order=2)
+    state = solver.lpt(dlin, Q, a=0.3, order=2)
 
     dnonlin = solver.nbody(state, leapfrog([0.3, 0.35]))
 

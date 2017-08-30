@@ -9,20 +9,17 @@ from nbodykit.cosmology import Planck15, EHPower
 import numpy
 from numpy.testing import assert_allclose
 
-from classylss.cosmology import Cosmology
-
 from fastpm.multi import get_species_transfer_function_from_class
 
+Planck15 = Planck15.clone(gauge='newtonian')
 @MPITest([1, 4])
 def test_solver(comm):
     pm = ParticleMesh(BoxSize=512., Nmesh=[8, 8, 8], comm=comm)
     solver = Solver(pm, Planck15, B=1)
 
-    cPlanck15 = Cosmology.from_astropy(Planck15.engine, gauge='newtonian')
+    P_prm = Planck15.Primordial.get_pk
 
-    P_prm = cPlanck15.Primordial.get_pk
-
-    tf = get_species_transfer_function_from_class(cPlanck15, 9)
+    tf = get_species_transfer_function_from_class(Planck15, 9)
 
     Q = pm.generate_uniform_particle_grid(shift=0)
 
@@ -39,7 +36,7 @@ def test_solver(comm):
     print('4', ic.species['4'].S[0], ic.species['4'].P[0], ic.species['4'].Q[0])
 
     c2 = CoreSolver(pm, Planck15, B=1)
-    Pk = lambda k: cPlanck15.get_pk(k, z=0)
+    Pk = lambda k: Planck15.get_pk(k, z=0)
     dlin = c2.linear(wn, Pk)
     ic2 = c2.lpt(dlin, Q, 0.1, order=1)
     print(ic2.S[0], ic2.P[0], ic2.Q[0])

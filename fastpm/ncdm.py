@@ -11,7 +11,6 @@ class Solver(core.Solver):
 class FastPMStep(core.FastPMStep):
     def __init__(self, solver):
         core.FastPMStep.__init__(self, solver)
-        self.cosmology1 = Cosmology.from_astropy(self.cosmology.engine)
 
     def prepare_force(self, state, smoothing):
         nbar = 1.0 * state.csize / self.pm.Nmesh.prod()
@@ -37,7 +36,7 @@ class FastPMStep(core.FastPMStep):
 
         delta_k = rho.r2c(out=Ellipsis)
 
-        delta_k = phase_space_linear_ncdm(delta_k, self.cosmology1, ac)
+        delta_k = phase_space_linear_ncdm(delta_k, self.cosmology, ac)
 
         state.F[...] = layout.gather(longrange(X1, delta_k, split=0, factor=1.5 * self.cosmology.Om0))
 
