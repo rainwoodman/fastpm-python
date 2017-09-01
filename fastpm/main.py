@@ -11,7 +11,7 @@ from .background import PerturbationGrowth
 from nbodykit.cosmology import Planck15
 from nbodykit.cosmology import EHPower
 from nbodykit.cosmology import Cosmology
-from nbodykit.lab import FFTPower, MemoryMesh
+from nbodykit.lab import FFTPower, FieldMesh
 import numpy
 
 class Config(dict):
@@ -79,7 +79,7 @@ def main(args=None):
     state = solver.lpt(dlin, Q=Q, a=config['stages'][0], order=2)
 
     def write_power(d, path, a):
-        meshsource = MemoryMesh(d, Nmesh=config['pm_nc_factor'] * config['nc'])
+        meshsource = FieldMesh(d)
         r = FFTPower(meshsource, mode='1d')
         if config.pm.comm.rank == 0:
             print('Writing matter power spectrum at %s' % path)
@@ -87,7 +87,7 @@ def main(args=None):
             numpy.savetxt(path, 
                 numpy.array([
                   r.power['k'], r.power['power'].real, r.power['modes'],
-                  r.power['power'].real / solver.cosmology.growth_function(1.0 / a - 1) ** 2,
+                  r.power['power'].real / solver.cosmology.scale_independent_growth_factor(1.0 / a - 1) ** 2,
                 ]).T,
                 comments='# k p N p/D**2')
 
