@@ -45,18 +45,24 @@ class Solver(object):
                 a dictionary of species_name : (d(k), d d/ d a(k))
 
         """
-        assert order in (1,) # only first order is supported for now.
+        assert order in (1,2) # only first order is supported for now.
 
         # FIXME: Add 2LPT. According to Vlah, the 2LPT of CDM is the only
         # important term, but it gains some interaction terms
         # with other species.
 
+        pt = PerturbationGrowth(self.cosmology, a=[a])
+
         z = 1. / a - 1
-        from .force.lpt import lpt1
+        from .force.lpt import lpt1, lpt2source
 
         get_k = lambda k : sum(ki ** 2 for ki in k) ** 0.5
 
+        source1 = self.pm.create(mode='complex')
+        source1[...] = 0
+        Omega_tot = 0
         species = {}
+
         for spname, (sptype, d, dd) in sorted(species_spec.items(), key=lambda t:t[0]):
             sp = sptype(self.cosmology, self.pm.BoxSize, Q, self.pm.comm)
 
@@ -64,6 +70,9 @@ class Solver(object):
                 return d(get_k(k)) * v
 
             source = primordial.apply(apply_density)
+            source1[...] += sp.Omega(a) * source
+            Omega_tot += sp.Omega(a)
+
             DX1 = lpt1(source, Q)
             sp.S[...] = DX1
 
@@ -78,6 +87,17 @@ class Solver(object):
             sp.a['P'] = a
 
             species[spname] = sp
+
+        if order == 2:
+            source1[...] /= Omega_tot
+            source1[...] /= pt.D1(a) # goto z=0
+
+            source2 = lpt2source(source1)
+
+            for spname, sp in species.items():
+                DX2 = lpt1(source2, Q)
+                sp.S[...] += pt.D2(a) * DX2
+                sp.V[...] += a ** 2 * pt.f2(a) * pt.E(a) * pt.D2(a) * DX2
 
         state = StateVector(self.cosmology, species, self.pm.comm)
         state.a['S'] = a
