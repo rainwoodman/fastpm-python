@@ -201,12 +201,10 @@ def get_species_transfer_function_from_class(cosmology, z):
         d['dd_b'] = tf['t_b'] * fac
         d['dd_ncdm[0]'] = tf['t_ncdm[0]'] * fac
     elif cosmology.gauge == 'synchronous':
-        # FIXME: 
-        raise NotImplementedError("This needs to be written, code below is junk")
         fac = 1.0 / (cosmology.hubble_function(z) * (1. + z) ** -2)
         d['dd_cdm'] = 0.5 * tf['h_prime'] * fac
-        d['dd_b'] = 0.5 * tf['h_prime'] * tf['t_b'] * fac
-        d['dd_ncdm[0]'] = 0.5 * tf['h_prime'] * tf['t_ncdm[0]'] * fac
+        d['dd_b'] = (0.5 * tf['h_prime'] + tf['t_b']) * fac
+        d['dd_ncdm[0]'] = (0.5 * tf['h_prime'] + tf['t_ncdm[0]']) * fac
 
     k = tf['k'].copy()
     e = {}
