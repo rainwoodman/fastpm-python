@@ -42,7 +42,7 @@ class FastPMCatalogSource(CatalogSource):
         self._size = len(Q)
         CatalogSource.__init__(self, comm=linear.comm, use_cache=False)
 
-        self.update_csize()
+        self._csize = self.comm.allreduce(self._size)
 
         self['Displacement'] = state.S
         self['InitialPosition'] = state.Q

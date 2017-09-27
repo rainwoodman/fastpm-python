@@ -18,10 +18,14 @@ def test_nbkit(comm):
     from fastpm.nbkit import FastPMCatalogSource
     from nbodykit.lab import cosmology, FOF, LinearMesh
     cosmo = cosmology.Planck15
-    power = cosmology.EHPower(cosmo, 0)
+    power = cosmology.LinearPower(cosmo, 0)
 
     linear = LinearMesh(power, 256., 64, seed=400, comm=comm)
     sim = FastPMCatalogSource(linear, boost=2, Nsteps=5, cosmo=cosmo)
     fof = FOF(sim, 0.2, 8)
+    sim['Labels'] = fof.labels
+    sim.save('nbkit-%d' % comm.size, ['Position', 'InitialPosition', 'Displacement', 'Labels'])
     features = fof.find_features()
-    assert_allclose(features.csize, 710, rtol=0.01)
+    features.save('nbkit-fof-%d' % comm.size, ['CMPosition', 'Length'])
+    #print(features._size, features._csize)
+    assert_allclose(features.csize, 719, rtol=0.01)
