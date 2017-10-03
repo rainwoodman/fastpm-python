@@ -1,6 +1,5 @@
 import numpy
 
-from classylss.cosmology import Cosmology
 from . import core
 
 class Solver(core.Solver):
