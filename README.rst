@@ -9,9 +9,14 @@ CI status / master
     :alt: Build Status
     :target: https://travis-ci.org/rainwoodman/fastpm-python
 
+DOI of fastpm-python.
+
+.. image:: https://zenodo.org/badge/81290989.svg
+   :target: https://zenodo.org/badge/latestdoi/81290989
+   
+   
 .. image:: https://github.com/rainwoodman/fastpm-python/raw/artwork/artwork/10MpchTrajectories.png
     :align: center
-
 
 Install
 -------
