@@ -25,7 +25,7 @@ before_install:
     - conda create --yes -n test python=$PYTHON_VERSION
     - source activate test
     - conda install --yes numpy=$NUMPY_VERSION
-    - conda install --yes -c bccp nbodykit runtests
+    - conda install --yes -c bccp nbodykit runtests nose
     - conda list
 
 install:
