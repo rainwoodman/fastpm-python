@@ -17,8 +17,8 @@ before_install:
 - conda update --yes conda
 - conda create --yes -n test python=$PYTHON_VERSION
 - source activate test
-- conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py scipy astropy
-- conda install --yes -c bccp bigfile pfft-python nbodykit runtests corrfunc classylss
+- conda install --yes numpy=$NUMPY_VERSION nose cython scipy astropy
+- conda install --yes -c bccp bigfile pfft-python nbodykit runtests corrfunc classylss mpi4py
 
 install:
 - pip install .
