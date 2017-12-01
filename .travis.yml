@@ -1,4 +1,10 @@
+os:
+  - linux
+  - osx
+
+osx_image: xcode6.4
 language: c
+
 cache:
   directories:
   - "$HOME/.cache/pip"
@@ -10,23 +16,25 @@ env:
   - OMP_NUM_THREADS=1
 
 before_install:
-- wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-- chmod +x miniconda.sh
-- "./miniconda.sh -b -p $HOME/miniconda"
-- export PATH=$HOME/miniconda/bin:$PATH
-- conda update --yes conda
-- conda create --yes -n test python=$PYTHON_VERSION
-- source activate test
-- conda install --yes numpy=$NUMPY_VERSION nose cython scipy astropy
-- conda install --yes -c bccp bigfile pfft-python nbodykit runtests corrfunc classylss mpi4py
+    - if [ $TRAVIS_OS_NAME == "linux" ]; then wget http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh; fi
+    - if [ $TRAVIS_OS_NAME == "osx" ]; then wget http://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh; fi
+    - chmod +x miniconda.sh
+    - "./miniconda.sh -b -p $HOME/miniconda"
+    - export PATH=$HOME/miniconda/bin:$PATH
+    - conda update --yes conda
+    - conda create --yes -n test python=$PYTHON_VERSION
+    - source activate test
+    - conda install --yes numpy=$NUMPY_VERSION
+    - conda install --yes -c bccp nbodykit runtests
+    - conda list
 
 install:
-- pip install .
+    - pip install .
 
 script:
-- python runtests.py
-- python -m fastpm.main examples/run
-- bash check_tag.sh fastpm/version.py
+    - python runtests.py
+    - python -m fastpm.main examples/run
+    - bash check_tag.sh fastpm/version.py
 
 deploy:
   provider: pypi
