@@ -17,7 +17,7 @@ def test_solver(comm):
     pm = ParticleMesh(BoxSize=512., Nmesh=[8, 8, 8], comm=comm)
     solver = Solver(pm, Planck15, B=1)
 
-    P_prm = Planck15.Primordial.get_pk
+    P_prm = Planck15.Primordial.get_pkprim
 
     tf = get_species_transfer_function_from_class(Planck15, 9)
 
