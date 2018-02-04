@@ -73,14 +73,15 @@ class Solver(object):
             source1[...] += sp.Omega(a) * source
             Omega_tot += sp.Omega(a)
 
-            DX1 = lpt1(source, Q)
+            DX1 = lpt1(source, sp.Q)
             sp.S[...] = DX1
 
             def apply_velocity(k, v):
                 return a * self.cosmology.efunc(z) * dd(get_k(k)) * v
 
             source = primordial.apply(apply_velocity)
-            sp.P[...] = a ** 2 * lpt1(source, Q)
+            # Use add to perserve the initial thermal velocity
+            sp.P[...] += a ** 2 * lpt1(source, sp.Q)
             sp.F[...] = 0
 
             sp.a['S'] = a
@@ -95,9 +96,9 @@ class Solver(object):
             source2 = lpt2source(source1)
 
             for spname, sp in species.items():
-                DX2 = lpt1(source2, Q)
+                DX2 = lpt1(source2, sp.Q)
                 sp.S[...] += pt.D2(a) * DX2
-                sp.V[...] += a ** 2 * pt.f2(a) * pt.E(a) * pt.D2(a) * DX2
+                sp.P[...] += a ** 2 * pt.f2(a) * pt.E(a) * pt.D2(a) * DX2
 
         state = StateVector(self.cosmology, species, self.pm.comm)
         state.a['S'] = a

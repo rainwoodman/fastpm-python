@@ -102,6 +102,79 @@ class NCDM(Species):
         # FIXME: using Omega_ncdm after switching to new nbodykit cosmology.
         return self.cosmology.Onu(z=1. / a - 1)
 
+class TiledNCDM(Species):
+    @staticmethod
+    def generate_nu_template(m_nu, nside, nshell):
+        # Arka's Tiled scheme that samples neutrion thermal velocity coherently.
+        # arxiv: 1801.03906
+
+        import numpy
+        from scipy.integrate import quad
+
+        import healpy
+
+        # the tempalte of directions.
+        vec = numpy.array(healpy.pix2vec(nside, numpy.arange(healpy.nside2npix(nside)))).T
+        # make sure the vecs are isotropic.
+        vec /= (vec**2 * 3).sum(axis=0)**0.5
+
+        # equal probablitiy shells in the distribution function
+        shells = numpy.linspace(0, 1, nshell + 1, endpoint=True)
+
+        def fermi_dirac(p):
+            return p**2 / (numpy.exp(p) + 1)
+
+        def fermi_dirac_p2(p):
+            return p**4 / (numpy.exp(p) + 1)
+
+        factor = (quad(fermi_dirac_p2, 0, 20)[0] / quad(fermi_dirac, 0, 20)[0] ) ** 0.5
+
+        fermi_dirac_vel_nu = numpy.linspace(0, 20, 4097, endpoint=True)
+        fermi_dirac_cumprob_nu = numpy.array([quad(fermi_dirac, 0, vel)[0]
+                                  for vel in fermi_dirac_vel_nu]) / quad(fermi_dirac, 0, 20)[0]
+
+        ind = fermi_dirac_cumprob_nu.searchsorted(shells)
+
+        vedge = fermi_dirac_vel_nu[ind]
+
+        vbar = numpy.array([(
+            quad(fermi_dirac_p2, start, end)[0] / quad(fermi_dirac, start, end)[0])**0.5
+               for start, end in zip(vedge[:-1], vedge[1:])])
+            
+        # to a **2 dx /dt in km/s
+        p = factor * 50.3 / m_nu * vbar
+
+        template = (vec[None, ...] * p[:, None, None]).reshape(-1, 3)
+
+        return template
+
+    def __init__(self, cosmology, BoxSize, Q, comm):
+        self.cosmology = cosmology
+        self.comm = comm
+        self.BoxSize = numpy.zeros(Q.shape[-1], dtype='f8')
+        self.BoxSize[...] = BoxSize
+
+        self.dtype = Q.dtype
+
+        template = self.generate_nu_template(cosmology.m_ncdm[0], 1, 10)
+
+        nQ = len(Q)
+
+        Q = numpy.repeat(Q, len(template), axis=0)
+        self.Q = Q
+        
+        self.S = numpy.zeros_like(self.Q)
+        self.P = numpy.repeat(template[None, ...], nQ, axis=0).reshape(-1, len(BoxSize))
+        self.F = numpy.zeros_like(self.Q)
+        self.RHO = numpy.zeros_like(self.Q[..., 0])
+        self.a = dict(S=None, P=None, F=None)
+
+        self.csize = self.comm.allreduce(len(self.Q))
+
+    def Omega(self, a):
+        # FIXME: using Omega_ncdm after switching to new nbodykit cosmology.
+        return self.cosmology.Onu(z=1. / a - 1)
+
 from collections import OrderedDict
 class StateVector(object):
     def __init__(self, cosmology, species, comm):
