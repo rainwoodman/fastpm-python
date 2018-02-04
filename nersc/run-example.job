@@ -12,4 +12,5 @@ source /usr/common/contrib/bccp/conda-activate.sh 3.5
 bcast-pip -U --no-deps /global/u1/y/yfeng1/source/nbodykit/
 bcast-pip -U --no-deps /global/u1/y/yfeng1/source/fastpm-python/
 
+set -x
 srun -n 16 python -m fastpm.main run
