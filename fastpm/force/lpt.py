@@ -10,13 +10,10 @@ def lpt1(dlin_k, q, resampler='cic'):
     ndim = len(basepm.Nmesh)
     delta_k = basepm.create('complex')
 
-    # only need to view the size
-    delta_x = basepm.create('real', base=delta_k.base)
-
     layout = basepm.decompose(q)
     local_q = layout.exchange(q)
 
-    source = numpy.zeros((delta_x.size, ndim), dtype=q.dtype)
+    source = numpy.zeros((len(q), ndim), dtype=q.dtype)
     for d in range(len(basepm.Nmesh)):
         disp = dlin_k.apply(FKN.laplace) \
                     .apply(FKN.gradient(d), out=Ellipsis) \
