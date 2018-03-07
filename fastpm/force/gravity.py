@@ -5,22 +5,12 @@ from . import kernels as FKN
 def longrange(x, delta_k, split, factor):
     """ factor shall be 3 * Omega_M / 2, if delta_k is really 1 + overdensity """
 
-    f = numpy.empty_like(x)
-
-    pot_k = delta_k.apply(FKN.laplace) \
-                  .apply(FKN.longrange(split), out=Ellipsis)
-
-    for d in range(x.shape[1]):
-        force_d = pot_k.apply(FKN.gradient(d)) \
-                  .c2r(out=Ellipsis)
-        force_d.readout(x, out=f[..., d])
-
-    f[...] *= factor
-
-    return f
+    return longrange_batch([x], delta_k, split, factor)[0]
 
 def longrange_batch(x, delta_k, split, factor):
     """ like long range, but x is a list of positions """
+
+    # use the four point kernel to suppresse artificial growth of noise like terms
 
     f = [numpy.empty_like(xi) for xi in x]
 
@@ -28,7 +18,7 @@ def longrange_batch(x, delta_k, split, factor):
                   .apply(FKN.longrange(split), out=Ellipsis)
 
     for d in range(delta_k.ndim):
-        force_d = pot_k.apply(FKN.gradient(d)) \
+        force_d = pot_k.apply(FKN.gradient(d, order=1)) \
                   .c2r(out=Ellipsis)
         for xi, fi in zip(x, f):
             force_d.readout(xi, out=fi[..., d])
