@@ -111,7 +111,7 @@ class Solver(object):
         return FastPMStep(self)
 
     def whitenoise(self, seed, unitary=False):
-        return self.pm.generate_whitenoise(seed, mode='complex', unitary=unitary)
+        return self.pm.generate_whitenoise(seed, type='complex', unitary=unitary)
 
     def linear(self, whitenoise, Pk):
         return whitenoise.apply(lambda k, v:
@@ -188,8 +188,7 @@ class FastPMStep(object):
 
         X1 = layout.exchange(X)
 
-        rho = self.pm.create(mode="real")
-        rho.paint(X1, hold=False)
+        rho = self.pm.paint(X1)
         rho /= nbar # 1 + delta
         return layout, X1, rho
 

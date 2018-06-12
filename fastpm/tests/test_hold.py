@@ -2,12 +2,12 @@ from fastpm.core import leapfrog, autostages
 from fastpm.hold import Solver
 
 from pmesh.pm import ParticleMesh
-from nbodykit.cosmology import Planck15, EHPower
+from nbodykit.cosmology import Planck15, LinearPower
 import numpy
 pm = ParticleMesh(BoxSize=32., Nmesh=[16, 16, 16])
 
 def test_solver():
-    Plin = EHPower(Planck15, redshift=0)
+    Plin = LinearPower(Planck15, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck15, B=2)
     Q = pm.generate_uniform_particle_grid()
 

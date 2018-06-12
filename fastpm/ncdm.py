@@ -20,8 +20,7 @@ class FastPMStep(core.FastPMStep):
 
         X1 = layout.exchange(X)
 
-        rho = self.pm.create(mode="real")
-        rho.paint(X1, hold=False)
+        rho = self.pm.paint(X1)
         rho /= nbar # 1 + delta
         return layout, X1, rho
 

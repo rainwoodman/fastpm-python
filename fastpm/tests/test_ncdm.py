@@ -3,7 +3,7 @@ from fastpm.core import leapfrog, autostages
 from fastpm.background import PerturbationGrowth
 
 from pmesh.pm import ParticleMesh
-from nbodykit.cosmology import Planck15, EHPower
+from nbodykit.cosmology import Planck15, LinearPower
 import numpy
 from numpy.testing import assert_allclose
 
@@ -13,7 +13,7 @@ from fastpm.ncdm import Solver
 @MPITest([1, 4])
 def test_ncdm(comm):
     pm = ParticleMesh(BoxSize=512., Nmesh=[8, 8, 8], comm=comm)
-    Plin = EHPower(Planck15, redshift=0)
+    Plin = LinearPower(Planck15, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck15, B=1)
     Q = pm.generate_uniform_particle_grid()
 

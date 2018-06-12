@@ -2,7 +2,7 @@ from fastpm.core import leapfrog, Solver, autostages
 from fastpm.background import PerturbationGrowth
 
 from pmesh.pm import ParticleMesh
-from nbodykit.cosmology import Planck15, EHPower
+from nbodykit.cosmology import Planck15, LinearPower
 import numpy
 from numpy.testing import assert_allclose
 
@@ -30,7 +30,7 @@ def test_leapfrog():
     assert len(l) == 1
 
 def test_solver():
-    Plin = EHPower(Planck15, redshift=0)
+    Plin = LinearPower(Planck15, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck15, B=1)
     Q = pm.generate_uniform_particle_grid()
 
@@ -44,7 +44,7 @@ def test_solver():
     dnonlin.save('nonlin')
 
 def test_lpt():
-    Plin = EHPower(Planck15, redshift=0)
+    Plin = LinearPower(Planck15, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck15, B=1)
     Q = pm.generate_uniform_particle_grid()
 

@@ -27,7 +27,7 @@ class Solver(object):
         return FastPMStep(self)
 
     def whitenoise(self, seed, unitary=False):
-        return self.pm.generate_whitenoise(seed, mode='complex', unitary=unitary)
+        return self.pm.generate_whitenoise(seed, type='complex', unitary=unitary)
 
     def primordial(self, wn, Pk):
         get_k = lambda k : sum(ki ** 2 for ki in k) ** 0.5
@@ -58,8 +58,8 @@ class Solver(object):
 
         get_k = lambda k : sum(ki ** 2 for ki in k) ** 0.5
 
-        source1 = self.pm.create(mode='complex')
-        source1[...] = 0
+        source1 = self.pm.create(type='complex', value=0)
+
         Omega_tot = 0
         species = {}
 
@@ -143,8 +143,7 @@ class FastPMStep(object):
         state.a['S'] = af
 
     def prepare_force(self, state, smoothing):
-        rho = self.pm.create(mode="real")
-        rho[...] = 0
+        rho = self.pm.create(type="real", value=0)
 
         layout = []
         X1 = []
