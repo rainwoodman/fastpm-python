@@ -235,7 +235,8 @@ class MatterDominated(Perturbation):
         self.Omega0_lambda = Omega0_lambda
         self.Omega0_m = Omega0_m
         self.Omega0_k = Omega0_k
-
+        # Om0 is added for backward compatiblity
+        self.Om0 = Omega0_m
         Perturbation.__init__(self, a, a_normalize)
 
     def get_initial_condition(self):
@@ -283,6 +284,8 @@ class RadiationDominated(Perturbation):
         self._cosmo = cosmo
         self.Omega0_m = cosmo.Om0
 
+        # Om0 is added for backward compatiblity
+        self.Om0 = self.Omega0_m
         self.Omega0_gamma = cosmo.Ogamma0
 
         Perturbation.__init__(self, a, a_normalize)
