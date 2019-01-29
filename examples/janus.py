@@ -13,8 +13,8 @@ from numpy.testing import assert_allclose
 from fastpm.core import Solver, leapfrog
 
 from nbodykit.cosmology import Planck15, EHPower
-from nbodykit.algorithms.fof import FOF
-from nbodykit.source import ArrayCatalog
+from nbodykit.lab import FOF
+from nbodykit.lab import ArrayCatalog
 
 from pmesh.pm import ParticleMesh
 import numpy
@@ -35,24 +35,37 @@ def monitor(action, ai, ac, af, state, event):
         print(state.a['S'],  state.a['P'], state.a['F'], state.S[0], state.P[0], action, ai, ac, af)
 
 def gorfpael(stages): 
-    # Reversed Leap-Frog
+    # Reversed Leap-Frog, the verbose way
+    # this is identical to leapfrog(stages[::-1])
     stack = []
+
+    # compute the force first as we didn't save it
+    yield ('F', stages[-1], stages[-1], stages[-1])
+
     for action, ai, ac, af in list(leapfrog(stages))[::-1]:
-        if action == 'K':
-            # need to pop the F before K to ensure the correct force is used.
-            stack.append((action, af, ac, ai))
-        elif action == 'F':
+        if action == 'D':
             yield action, af, ac, ai
-            for item in stack:
-                yield item
+            for action, af, ac, ai in stack:
+                assert action == 'F'
+                yield action, af, ac, ai
             stack = []
+        elif action == 'F':
+            # need to do F after D to ensure the time tag is right.
+            assert ac == af
+            stack.append((action, af, ai, ai))
         else:
             yield action, af, ac, ai
+
+print(list(leapfrog(stages)))
+print('----')
+print(list(gorfpael(stages)))
+print('++++')
+print(list(leapfrog(stages[::-1])))
 
 state = solver.nbody(lpt.copy(), leapfrog(stages), monitor=monitor)
 if pm.comm.rank == 0:
     print('----------------')
-reverse = solver.nbody(state, gorfpael(stages), monitor=monitor)
+reverse = solver.nbody(state, leapfrog(stages[::-1]), monitor=monitor)
 #print((lpt.X - reverse.X).max())
 
 assert_allclose(lpt.X, reverse.X)
