@@ -55,7 +55,7 @@ class StateVector(object):
         return real
 
     def to_catalog(self, **kwargs):
-        from nbodykit.source import ArrayCatalog
+        from nbodykit.lab import ArrayCatalog
         source = ArrayCatalog({'Position' : self.X, 'Velocity' : self.V},
             BoxSize=self.pm.BoxSize, Om0=self.cosmology.Om0,
             Time=self.a['S'], comm=self.pm.comm, **kwargs
