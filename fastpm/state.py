@@ -66,7 +66,7 @@ class Species(object):
         return real
 
     def to_catalog(self, **kwargs):
-        from nbodykit.source import ArrayCatalog
+        from nbodykit.lab import ArrayCatalog
         from nbodykit.transform import ConstantArray
         Omega = self.Omega(self.a['S'])
         source = ArrayCatalog({'Position' : self.X, 'Velocity' : self.V,
