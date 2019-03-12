@@ -16,7 +16,7 @@ def lpt1(dlin_k, q, resampler='cic'):
     source = numpy.zeros((len(q), ndim), dtype=q.dtype)
     for d in range(len(basepm.Nmesh)):
         disp = dlin_k.apply(FKN.laplace) \
-                    .apply(FKN.gradient(d), out=Ellipsis) \
+                    .apply(FKN.gradient(d, order=1), out=Ellipsis) \
                     .c2r(out=Ellipsis)
         local_disp = disp.readout(local_q, resampler=resampler)
         source[..., d] = layout.gather(local_disp)
@@ -37,8 +37,8 @@ def lpt2source(dlin_k):
     # diagnoal terms
     for d in range(dlin_k.ndim):
         phi_ii_d = dlin_k.apply(FKN.laplace) \
-                     .apply(FKN.gradient(d), out=Ellipsis) \
-                     .apply(FKN.gradient(d), out=Ellipsis) \
+                     .apply(FKN.gradient(d, order=1), out=Ellipsis) \
+                     .apply(FKN.gradient(d, order=1), out=Ellipsis) \
                      .c2r(out=Ellipsis)
         phi_ii.append(phi_ii_d)
 
@@ -52,8 +52,8 @@ def lpt2source(dlin_k):
     # off-diag terms
     for d in range(dlin_k.ndim):
         phi_ij_d = dlin_k.apply(FKN.laplace) \
-                 .apply(FKN.gradient(D1[d]), out=Ellipsis) \
-                 .apply(FKN.gradient(D2[d]), out=Ellipsis) \
+                 .apply(FKN.gradient(D1[d], order=1), out=Ellipsis) \
+                 .apply(FKN.gradient(D2[d], order=1), out=Ellipsis) \
                  .c2r(out=Ellipsis)
 
         source[...] -= phi_ij_d[...] ** 2
