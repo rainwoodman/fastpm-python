@@ -127,7 +127,7 @@ class StateVector(object):
         return StateVector(self.cosmology, vc, self.comm)
 
     def to_catalog(self, **kwargs):
-        from nbodykit.source import MultipleSpeciesCatalog
+        from nbodykit.lab import MultipleSpeciesCatalog
         names = []
         sources = []
 
@@ -135,7 +135,6 @@ class StateVector(object):
             sources.append(sp.to_catalog())
             names.append(spname)
 
-        print(kwargs)
         cat = MultipleSpeciesCatalog(names, *sources, **kwargs)
         return cat
 
