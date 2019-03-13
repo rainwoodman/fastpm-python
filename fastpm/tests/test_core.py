@@ -1,5 +1,5 @@
 from fastpm.core import leapfrog, Solver, autostages
-from fastpm.background import PerturbationGrowth
+from fastpm.background import MatterDominated
 
 from pmesh.pm import ParticleMesh
 from nbodykit.cosmology import Planck15, LinearPower
@@ -54,7 +54,7 @@ def test_lpt():
     state1 = solver.lpt(dlin, Q, a=0.01, order=1)
     state2 = solver.lpt(dlin, Q, a=1.0, order=1)
 
-    pt = PerturbationGrowth(Planck15, a=[0.01, 1.0], a_normalize=1.0)
+    pt = MatterDominated(Planck15.Om0, a=[0.01, 1.0], a_normalize=1.0)
 #    print((state2.P[...] / state1.P[...]))
     print((state2.P[...] - state1.P[...]) / state1.F[...])
 

@@ -1,7 +1,7 @@
 import numpy
 
 from pmesh.pm import ParticleMesh
-from .background import PerturbationGrowth
+from .background import MatterDominated
 from nbodykit.cosmology import Cosmology
 
 class StateVector(object):
@@ -124,7 +124,7 @@ class Solver(object):
         from .force.lpt import lpt1, lpt2source
 
         state = StateVector(self, Q)
-        pt = PerturbationGrowth(self.cosmology, a=[a], a_normalize=self.a_linear)
+        pt = MatterDominated(self.cosmology.Om0, a=[a], a_normalize=self.a_linear)
         DX1 = pt.D1(a) * lpt1(linear, Q)
 
         V1 = a ** 2 * pt.f1(a) * pt.E(a) * DX1
@@ -167,14 +167,14 @@ class FastPMStep(object):
 
     def Kick(self, state, ai, ac, af):
         assert ac == state.a['F']
-        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
+        pt = MatterDominated(self.cosmology.Om0, a=[ai, ac, af], a_normalize=self.solver.a_linear)
         fac = 1 / (ac ** 2 * pt.E(ac)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ac)
         state.P[...] = state.P[...] + fac * state.F[...]
         state.a['P'] = af
 
     def Drift(self, state, ai, ac, af):
         assert ac == state.a['P']
-        pt = PerturbationGrowth(self.cosmology, a=[ai, ac, af], a_normalize=self.solver.a_linear)
+        pt = MatterDominated(self.cosmology.Om0, a=[ai, ac, af], a_normalize=self.solver.a_linear)
         fac = 1 / (ac ** 3 * pt.E(ac)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ac)
         state.S[...] = state.S[...] + fac * state.P[...]
         state.a['S'] = af
