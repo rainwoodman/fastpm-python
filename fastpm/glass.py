@@ -5,9 +5,46 @@ from .core import leapfrog
 from pmesh.pm import ParticleMesh
 from nbodykit.cosmology import Planck15
 
+def generate_glass_particle_grid(pm, seed, B=2, spread=3.0, N=3):
+    """
+    Make a glass particle distribution.
+
+    A total of pm.Nmesh.prod() particles will be generated.
+
+    Parameters
+    ----------
+    spread : float
+        how much to drift the particles from the initial uniform grid.
+        3 seems to be good enough. larger value suppresses the uniform grid.
+
+    N : int
+        number of periods to evolve the nbody glass problem.
+        N = 3 seems to be good enough.
+        Larger value relax the particles more.
+
+    Returns
+    -------
+    X : array_like
+        positions of the glass grid, distributed according to
+        the initial position.
+
+    """
+    solver = Solver(pm, B)
+
+    Q = pm.generate_uniform_particle_grid()
+
+    glass = solver.run(seed, Q, spread=spread, N=N)
+
+    X = glass.X % pm.BoxSize
+    layout = pm.decompose(X, smoothing=0)
+    X = layout.exchange(X)
+
+    return X
+
 class Solver(core.Solver):
     def __init__(self, pm, B=2):
-        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize, dtype=pm.dtype, comm=pm.comm, resampler=pm.resampler)
+        fpm = ParticleMesh(Nmesh=pm.Nmesh * B, BoxSize=pm.BoxSize,
+                dtype=pm.dtype, comm=pm.comm, resampler=pm.resampler)
         self.pm = pm
         self.fpm = fpm
         self.cosmology = Planck15 # any will do
@@ -16,12 +53,12 @@ class Solver(core.Solver):
     def nbodystep(self):
         return GlassStep(self)
 
-    def glass(self, seed, Q):
+    def run(self, seed, Q, spread=3.0, N=3):
         rng = numpy.random.RandomState(seed + self.pm.comm.rank)
         nbar = 1 / (self.pm.BoxSize.prod() / self.pm.comm.allreduce(len(Q)))
 
         # a spread of 3 will kill most of the anisotropiness of the Q grid.
-        Q = Q + 3 * (rng.uniform(size=Q.shape) -0.5) * (nbar ** -0.3333333)
+        Q = Q + spread * (rng.uniform(size=Q.shape) -0.5) * (nbar ** -0.3333333)
 
         state = core.StateVector(self, Q)
         # add a uniform random displacement
@@ -30,8 +67,6 @@ class Solver(core.Solver):
         state.F[...] = 0
         state.a['S'] = 0
         state.a['P'] = 0
-
-        N = 3
 
         # The period is 2 pi. At pi/2 we encounter the first minimium power spectrum
         # damping means after 3 periods we have almost a glass power at the minimium.

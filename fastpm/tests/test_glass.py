@@ -1,12 +1,11 @@
-from fastpm.glass import leapfrog, Solver, ParticleMesh
+from fastpm.glass import generate_glass_particle_grid, ParticleMesh
 
 import numpy
 from numpy.testing import assert_allclose
 
 pm = ParticleMesh(BoxSize=128., Nmesh=[8, 8, 8])
 
-def test_solver():
-    solver= Solver(pm, B=1)
-    Q = pm.generate_uniform_particle_grid()
-    state = solver.glass(3333, Q)
-    state.save('glass')
+def test_glass():
+    X = generate_glass_particle_grid(pm, 123)
+
+    assert pm.comm.allreduce(len(X)) == pm.Nmesh.prod()
