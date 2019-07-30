@@ -40,7 +40,7 @@ class FastPMCatalogSource(CatalogSource):
         self.RSD = 1.0 / (H0 * aend * self.cosmo.efunc(1.0 / aend - 1))
 
         self._size = len(Q)
-        CatalogSource.__init__(self, comm=linear.comm, use_cache=False)
+        CatalogSource.__init__(self, comm=linear.comm)
 
         self._csize = self.comm.allreduce(self._size)
 
