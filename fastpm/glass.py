@@ -33,7 +33,12 @@ def generate_glass_particle_grid(pm, seed, B=2, spread=3.0, N=3):
 
     Q = pm.generate_uniform_particle_grid()
 
-    glass = solver.run(seed, Q, spread=spread, N=N)
+
+    # The period is 2 pi. At pi/2 we encounter the first minimium power spectrum
+    # damping means after 3 periods we have almost a glass power at the minimium.
+    stages = numpy.linspace(0, numpy.pi * 2 * (N + 0.25), int(8 * (N + 0.25) + 1))
+
+    glass = solver.run(seed, Q, stages, spread=spread, N=N)
 
     X = glass.X % pm.BoxSize
     layout = pm.decompose(X, smoothing=0)
@@ -53,24 +58,20 @@ class Solver(core.Solver):
     def nbodystep(self):
         return GlassStep(self)
 
-    def run(self, seed, Q, spread=3.0, N=3):
+    def run(self, seed, Q, stages, spread=3.0, N=3):
         rng = numpy.random.RandomState(seed + self.pm.comm.rank)
         nbar = 1 / (self.pm.BoxSize.prod() / self.pm.comm.allreduce(len(Q)))
 
-        # a spread of 3 will kill most of the anisotropiness of the Q grid.
-        Q = Q + spread * (rng.uniform(size=Q.shape) -0.5) * (nbar ** -0.3333333)
+        Q = Q
 
         state = core.StateVector(self, Q)
-        # add a uniform random displacement
         state.S[...] = 0
+        # a spread of 3 will kill most of the anisotropiness of the Q grid.
+        state.S[...] += spread * (rng.uniform(size=Q.shape) -0.5) * (nbar ** -0.3333333)
         state.P[...] = 0
         state.F[...] = 0
         state.a['S'] = 0
         state.a['P'] = 0
-
-        # The period is 2 pi. At pi/2 we encounter the first minimium power spectrum
-        # damping means after 3 periods we have almost a glass power at the minimium.
-        stages = numpy.linspace(0, numpy.pi * 2 * (N + 0.25), int(4 * (N + 0.25) + 1))
 
         self.nbody(state, leapfrog(stages))
 
