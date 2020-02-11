@@ -2,7 +2,7 @@ from __future__ import print_function
 from runtests.mpi import MPITest
 
 from numpy.testing import assert_allclose
-from numpy.testing.decorators import skipif
+from numpy.testing import dec
 import fastpm
 
 try:
@@ -13,7 +13,7 @@ except ImportError:
 
 
 @MPITest([1, 4])
-@skipif(True or nbodykit is None, "nbodykit test doesn't work on travis; is not installed")
+@dec.skipif(True or nbodykit is None, "nbodykit test doesn't work on travis; is not installed")
 def test_nbkit(comm):
     from fastpm.nbkit import FastPMCatalogSource
     from nbodykit.lab import cosmology, FOF, LinearMesh
