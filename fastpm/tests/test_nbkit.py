@@ -13,7 +13,7 @@ except ImportError:
 
 
 @MPITest([1, 4])
-@dec.skipif(True or nbodykit is None, "nbodykit test doesn't work on travis; is not installed")
+@dec.skipif(nbodykit is None, "nbodykit test doesn't work on travis; is not installed")
 def test_nbkit(comm):
     from fastpm.nbkit import FastPMCatalogSource
     from nbodykit.lab import cosmology, FOF, LinearMesh
@@ -28,4 +28,4 @@ def test_nbkit(comm):
     features = fof.find_features()
     features.save('nbkit-fof-%d' % comm.size, ['CMPosition', 'Length'])
     #print(features._size, features._csize)
-    assert_allclose(features.csize, 719, rtol=0.01)
+    assert_allclose(features.csize, 500, rtol=0.1)
