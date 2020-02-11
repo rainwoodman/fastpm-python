@@ -32,7 +32,7 @@ def test_leapfrog():
 def test_solver():
     Plin = LinearPower(Planck15, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck15, B=1)
-    Q = pm.generate_uniform_particle_grid()
+    Q = pm.generate_uniform_particle_grid(shift=0)
 
     wn = solver.whitenoise(1234)
     dlin = solver.linear(wn, lambda k: Plin(k))
@@ -46,7 +46,7 @@ def test_solver():
 def test_lpt():
     Plin = LinearPower(Planck15, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck15, B=1)
-    Q = pm.generate_uniform_particle_grid()
+    Q = pm.generate_uniform_particle_grid(shift=0)
 
     wn = solver.whitenoise(1234)
     dlin = solver.linear(wn, lambda k: Plin(k))

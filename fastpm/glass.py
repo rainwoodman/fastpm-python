@@ -31,7 +31,7 @@ def generate_glass_particle_grid(pm, seed, B=2, spread=3.0, N=3):
     """
     solver = Solver(pm, B)
 
-    Q = pm.generate_uniform_particle_grid()
+    Q = pm.generate_uniform_particle_grid(shift=0)
 
 
     # The period is 2 pi. At pi/2 we encounter the first minimium power spectrum

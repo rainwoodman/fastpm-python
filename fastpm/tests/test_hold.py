@@ -9,7 +9,7 @@ pm = ParticleMesh(BoxSize=32., Nmesh=[16, 16, 16])
 def test_solver():
     Plin = LinearPower(Planck15, redshift=0, transfer='EisensteinHu')
     solver = Solver(pm, Planck15, B=2)
-    Q = pm.generate_uniform_particle_grid()
+    Q = pm.generate_uniform_particle_grid(shift=0)
 
     wn = solver.whitenoise(1234)
     dlin = solver.linear(wn, lambda k: Plin(k))
