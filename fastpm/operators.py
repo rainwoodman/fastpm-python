@@ -238,7 +238,7 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
 
         grad_deltak_d = grad_force_d.c2r_gradient(out=Ellipsis) \
                         .apply(laplace_kernel, out=Ellipsis) \
-                        .apply(diff_kernel(d, conjugate=True), out=Ellipsis) \
+                        .apply(diff_kernel(d, conjugate=True), out=Ellipsis)
         grad_deltak[...] += grad_deltak_d
         out_x[...] += grad_x_d
 
